@@ -124,10 +124,10 @@ test('personality and reply style persist without starting AI and flow into prom
   const h=await createHarness();
   let result=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
   assert.equal(result.personality,'friendly');
-  assert.equal(result.replyStyle,'natural');
-  result=await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'anthropic/claude-opus-5.5',key:'sample-key',personality:'custom',personalityNotes:'Talk like a chill teammate and explain switches.',replyStyle:'detailed'});
+  assert.equal(result.replyStyle,'short');
+  result=await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'anthropic/claude-opus-5.5',key:'sample-key',personality:'custom',personalityNotes:'Talk like a chill teammate and explain switches.',replyStyle:'long'});
   assert.equal(result.personality,'custom');
-  assert.equal(result.replyStyle,'detailed');
+  assert.equal(result.replyStyle,'long');
   assert.equal(h.calls.includes('fetch'),false);
   const saved=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
   assert.equal(saved.personalityNotes,'Talk like a chill teammate and explain switches.');
@@ -135,7 +135,7 @@ test('personality and reply style persist without starting AI and flow into prom
   await h.message({type:'ZYNCEZ_ASK',question:'What should I do?',state:{battleFound:true},history:[]});
   const prompt=h.requestBodies.at(-1).messages;
   assert.match(prompt[1].content,/chill teammate/);
-  assert.match(prompt[1].content,/in-depth and comprehensive/);
+  assert.match(prompt[1].content,/Response length: LONG/);
   assert.doesNotMatch(JSON.stringify(prompt),/sample-key/);
   // Quick model changes keep personality intact.
   await h.message({type:'ZYNCEZ_SET_MODEL',model:'openai/gpt-5-mini'});
@@ -148,4 +148,35 @@ test('invalid personality values fall back to safe defaults and notes are length
   assert.equal(result.personality,'friendly');
   assert.equal(result.replyStyle,'natural');
   assert.equal(result.personalityNotes.length,1600);
+});
+
+test('quick reply length switch saves immediately, never sends AI request, preserves key/model/personality',async()=>{
+  const h=await createHarness();
+  await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'openai/gpt-5-mini',key:'private',personality:'coach',personalityNotes:'Speak plainly.',replyStyle:'short'});
+  const count=h.calls.filter(c=>c==='fetch').length;
+  for(const length of ['medium','long','short']){
+    const result=await h.message({type:'ZYNCEZ_SET_REPLY_STYLE',replyStyle:length});
+    assert.equal(result.ok,true);
+    assert.equal(result.replyStyle,length);
+    const stored=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
+    assert.equal(stored.replyStyle,length);
+    assert.equal(stored.personality,'coach');
+    assert.equal(stored.personalityNotes,'Speak plainly.');
+    assert.equal(stored.model,'openai/gpt-5-mini');
+    assert.equal(stored.hasKey,true);
+  }
+  assert.equal(h.calls.filter(c=>c==='fetch').length,count);
+  assert.equal((await h.message({type:'ZYNCEZ_SET_REPLY_STYLE',replyStyle:'summarize-all'})).ok,false);
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).replyStyle,'short');
+  await h.message({type:'ZYNCEZ_SET_REPLY_STYLE',replyStyle:'medium'});
+  await h.message({type:'ZYNCEZ_ASK',question:'Best move?',state:{battleFound:true},history:[]});
+  assert.match(h.requestBodies.at(-1).messages[1].content,/Response length: MEDIUM/);
+});
+
+test('old response styles from v0.9 load as compatible new values',async()=>{
+  const h=await createHarness();
+  h.data.zyncezReplyStyle='natural';
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).replyStyle,'medium');
+  h.data.zyncezReplyStyle='detailed';
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).replyStyle,'long');
 });

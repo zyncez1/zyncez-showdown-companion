@@ -103,10 +103,10 @@ test('natural personality is conversational while custom personality and depth a
   const p=buildPayload({model:'openai/gpt-5-mini',question:'What is my best play?',state:{battleFound:true},history:[]});
   assert.match(p.messages[0].content,/Speak directly to the user like a real gaming friend/);
   assert.match(p.messages[1].content,/Friendly gaming buddy|gamer-friend energy/);
-  assert.match(p.messages[1].content,/natural conversation/i);
-  const custom=buildPayload({model:'openai/gpt-5-mini',question:'Hi',state:{},history:[],preferences:{personality:'custom',personalityNotes:'Playful and sassy, but be accurate.',replyStyle:'detailed'}});
+  assert.match(p.messages[1].content,/Response length: SHORT/);
+  const custom=buildPayload({model:'openai/gpt-5-mini',question:'Hi',state:{},history:[],preferences:{personality:'custom',personalityNotes:'Playful and sassy, but be accurate.',replyStyle:'long'}});
   assert.match(custom.messages[1].content,/Playful and sassy/);
-  assert.match(custom.messages[1].content,/in-depth and comprehensive/);
+  assert.match(custom.messages[1].content,/in-depth explanation/);
   assert.doesNotMatch(custom.messages[0].content,/Only provide a summary/);
 });
 
@@ -115,4 +115,29 @@ test('does not silently truncate longer model replies or hide Markdown markers f
   const answer=await askOpenRouter({key:'test-key',model:'openai/gpt-5-mini',question:'Explain the whole thing',state:{},history:[],fetchFn:async()=>({ok:true,json:async()=>({choices:[{message:{content:full}}]})})});
   assert.equal(answer.length,full.trim().length);
   assert.equal(answer,full.trim());
+});
+
+test('three reply modes are separate from personality and make distinct prompt choices',()=>{
+  const {sanitizePreferences,REPLY_STYLES}=require('../src/ai-core.js');
+  assert.deepEqual(Object.keys(REPLY_STYLES),['short','medium','long']);
+  for (const style of Object.keys(REPLY_STYLES)) {
+    const prefs=sanitizePreferences({personality:'hype',personalityNotes:'Joke about Magikarp.',replyStyle:style});
+    const req=buildPayload({model:'openai/gpt-5-mini',question:'What do you think?',state:{},history:[],preferences:prefs});
+    assert.equal(prefs.replyStyle,style);
+    assert.match(req.messages[1].content,/Enthusiastic gaming buddy/);
+    assert.match(req.messages[1].content,/Joke about Magikarp/);
+    assert.match(req.messages[1].content,new RegExp(`Response length: ${style.toUpperCase()}`));
+    assert.equal(req.max_tokens,8192,'Leave the model reasoning/output budget unchanged across modes');
+  }
+  assert.match(buildPayload({model:'openai/gpt-5-mini',question:'Hello',state:{},history:[],preferences:{replyStyle:'short'}}).messages[1].content,/1–3 clear sentences/);
+  assert.match(buildPayload({model:'openai/gpt-5-mini',question:'Best move?',state:{},history:[],preferences:{replyStyle:'medium'}}).messages[1].content,/main trade-off/);
+  assert.match(buildPayload({model:'openai/gpt-5-mini',question:'Best move?',state:{},history:[],preferences:{replyStyle:'long'}}).messages[1].content,/relevant alternatives/);
+});
+
+test('previous Natural/Detailed preferences migrate, while invalid length defaults Short',()=>{
+  const {sanitizePreferences}=require('../src/ai-core.js');
+  assert.equal(sanitizePreferences({replyStyle:'natural'}).replyStyle,'medium');
+  assert.equal(sanitizePreferences({replyStyle:'detailed'}).replyStyle,'long');
+  assert.equal(sanitizePreferences({replyStyle:'nope'}).replyStyle,'short');
+  assert.equal(sanitizePreferences(null).replyStyle,'short');
 });
