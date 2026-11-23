@@ -16,7 +16,7 @@ test('AI payload uses only sanitized visible battle data, not log/usernames/URLs
       {type:'chat',message:'SECRET CHAT'}],
     buttons:[{name:'Earthquake',action:'chooseMove'},{name:'Fake private',action:'chat'}]};
   const payload=buildPayload({model:'openai/gpt-5-mini',question:'What now?',state,history:[{role:'user',content:'I play Doubles'}]});
-  assert.deepEqual(Object.keys(sanitizeSnapshot(state)),['battleFound','turn','myActive','opponentActive','opponentRevealed','opponentUnknownSlots','myParty','opponentMovesSeen','battleEvents','buttons']);
+  assert.deepEqual(Object.keys(sanitizeSnapshot(state)),['battleFound','turn','myActive','opponentActive','opponentRevealed','opponentUnknownSlots','myParty','opponentMovesSeen','battleEvents','battleConditions','speedAnalysis','buttons']);
   assert.equal(payload.messages[0].role,'system');
   assert.equal(payload.messages.at(-1).role,'user');
   assert.equal(payload.messages.at(-1).content.includes('Garchomp'),true);

@@ -30,6 +30,12 @@
     'myParty contains the player own currently disclosed party and its known moves, including benched Pokémon.',
     'battleEvents lists structured gameplay events, NOT chat. Track opposing moves used, switches, weather, damage, status, and items when revealed.',
     'opponentMovesSeen contains revealed moves only, never hidden enemy move lists.',
+    'battleConditions includes captured weather, terrain, Tailwind, Trick Room and generation.',
+    'speedAnalysis includes your measured base Speed, conditional effective Speed and enemy possible Speed ranges; a range is not a measured opponent stat.',
+    'Before recommending a move, compare turn order at the same priority bracket. Moves with higher priority can go first irrespective of Speed; switches occur before regular moves.',
+    'Trick Room reverses same-priority Speed order; respect Tailwind, paralysis, boosts, items and weather abilities only when supported by captured information.',
+    'Unknown opponent Choice Scarf, abilities, EVs and IVs prevent certainty. Do not claim exact damage, a guaranteed KO, or definitive speed order without supporting calculations.',
+    'When recommending doubles moves, analyze each allied slot, targeting, and potential ally damage; do not infer a legal move from a bench Pokemon.',
     'If asked for a best move, start by suggesting concrete legal moves or switches for every active player Pokémon, especially in Doubles; explain briefly why, accounting for ally interactions and revealed enemy threats.',
     'Distinguish things you know from guesses in normal conversation rather than with repeated labels. Never assert hidden enemy items, moves, abilities, stats, or precise damage are confirmed.',
     'If opponentActive is empty, explain you cannot detect the active foe; do not treat revealed benched opponents as active.',
@@ -57,7 +63,11 @@
     const d = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
     const side = values => Array.isArray(values) ? values.slice(0,3).map(p=>({
       name:cleanText(p?.name,65), species:cleanText(p?.species,65),
-      hp:cleanText(p?.hp,25),status:cleanText(p?.status,20)
+      hp:cleanText(p?.hp,25),status:cleanText(p?.status,20),
+      level:Number.isInteger(p?.level)&&p.level>=1&&p.level<=100?p.level:null,
+      speedStage:Number.isInteger(p?.speedStage)?Math.max(-6,Math.min(6,p.speedStage)):0,
+      baseSpeed:Number.isInteger(p?.baseSpeed)&&p.baseSpeed>0?p.baseSpeed:null,
+      ability:cleanText(p?.ability,65),item:cleanText(p?.item,65)
     })).filter(p=>p.name||p.species) : [];
     const seen = values => Array.isArray(values) ? values.slice(0,24).map(p=>({
       name:cleanText(p?.name,65),species:cleanText(p?.species,65),
@@ -74,11 +84,13 @@
         slot:Number.isInteger(p?.slot)?p.slot:null,name:cleanText(p?.name,65),species:cleanText(p?.species,65),
         hp:cleanText(p?.hp,25),status:cleanText(p?.status,15),active:p?.active===true,fainted:p?.fainted===true,
         ability:cleanText(p?.ability,65),item:cleanText(p?.item,65),teraType:cleanText(p?.teraType,25),
+        speed:Number.isInteger(p?.speed)&&p.speed>0&&p.speed<2000?p.speed:null,
+        level:Number.isInteger(p?.level)&&p.level>=1&&p.level<=100?p.level:null,
         moves:Array.isArray(p?.moves)?p.moves.slice(0,6).map(m=>cleanText(m,65)).filter(Boolean):[],
         currentMoves:Array.isArray(p?.currentMoves)?p.currentMoves.slice(0,6).map(m=>({
           name:cleanText(m?.name,65),pp:Number.isInteger(m?.pp)?m.pp:null,
           maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:m?.disabled===true,
-          target:cleanText(m?.target,35)
+          target:cleanText(m?.target,35),priority:Number.isInteger(m?.priority)&&m.priority>=-7&&m.priority<=7?m.priority:null
         })):[]
       })).filter(p=>p.species):[],
       opponentMovesSeen:Array.isArray(d.opponentMovesSeen)?d.opponentMovesSeen.slice(0,12).map(p=>({
@@ -91,6 +103,35 @@
         side:['mine','opponent'].includes(e?.side)?e.side:'unknown',pokemon:cleanText(e?.pokemon,65),
         move:cleanText(e?.move,65),target:cleanText(e?.target,65),detail:cleanText(e?.detail,65)
       })):[],
+      battleConditions:d.battleConditions&&typeof d.battleConditions==='object'?{
+        generation:Number.isInteger(d.battleConditions.generation)?d.battleConditions.generation:null,
+        weather:cleanText(d.battleConditions.weather,40),terrain:cleanText(d.battleConditions.terrain,40),
+        trickRoom:d.battleConditions.trickRoom===true,
+        tailwind:{mine:d.battleConditions.tailwind?.mine===true,opponent:d.battleConditions.tailwind?.opponent===true}
+      }:null,
+      speedAnalysis:d.speedAnalysis&&typeof d.speedAnalysis==='object'?{
+        field:{trickRoom:d.speedAnalysis.field?.trickRoom===true},
+        myActive:Array.isArray(d.speedAnalysis.myActive)?d.speedAnalysis.myActive.slice(0,3).map(p=>({
+          name:cleanText(p?.name,65),species:cleanText(p?.species,65),
+          rawSpeed:Number.isInteger(p?.rawSpeed)?p.rawSpeed:null,
+          estimatedSpeed:Number.isInteger(p?.estimatedSpeed)?p.estimatedSpeed:null,
+          stage:Number.isInteger(p?.stage)?p.stage:0,
+          modifiers:Array.isArray(p?.modifiers)?p.modifiers.slice(0,8).map(m=>cleanText(m,80)):[]
+        })):[],
+        opponentActive:Array.isArray(d.speedAnalysis.opponentActive)?d.speedAnalysis.opponentActive.slice(0,3).map(p=>({
+          name:cleanText(p?.name,65),species:cleanText(p?.species,65),
+          level:Number.isInteger(p?.level)?p.level:null,baseSpeed:Number.isInteger(p?.baseSpeed)?p.baseSpeed:null,
+          range:p?.range&&Number.isInteger(p.range.min)&&Number.isInteger(p.range.max)?
+            {min:p.range.min,max:p.range.max}:null,
+          stage:Number.isInteger(p?.stage)?p.stage:0,
+          modifiers:Array.isArray(p?.modifiers)?p.modifiers.slice(0,8).map(m=>cleanText(m,80)):[]
+        })):[],
+        matchups:Array.isArray(d.speedAnalysis.matchups)?d.speedAnalysis.matchups.slice(0,9).map(x=>({
+          mine:cleanText(x?.mine,65),opponent:cleanText(x?.opponent,65),
+          order:['before','after','uncertain','unknown'].includes(x?.order)?x.order:'unknown'
+        })):[],
+        limits:Array.isArray(d.speedAnalysis.limits)?d.speedAnalysis.limits.slice(0,4).map(x=>cleanText(x,250)):[]
+      }:null,
       buttons:Array.isArray(d.buttons)?d.buttons.slice(0,24)
         .filter(b=>['chooseMove','chooseSwitch'].includes(b?.action))
         .map(b=>({name:cleanText(b.name,75),action:b.action,disabled:b.disabled===true})) : []

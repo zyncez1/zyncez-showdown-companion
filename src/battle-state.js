@@ -105,18 +105,28 @@
     result.battleEvents=[];
     result.opponentMovesSeen=[];
     result.gameReadStatus='unavailable';
+    result.battleConditions=null;
     if(!game?.available) {
       result.gameReadStatus=clean(game?.reason||'Game client data not available',120);
       // Show the own team disclosed in the sidebar even if client room data cannot be accessed.
       return result;
     }
     result.gameReadStatus='connected';
+    // Current battle field is read from Showdown's state, never guessed from chat.
+    if(game.battleConditions && typeof game.battleConditions==='object') {
+      const condition=game.battleConditions;
+      result.battleConditions={generation:Number.isInteger(condition.generation)?condition.generation:9,
+        weather:clean(condition.weather,40),terrain:clean(condition.terrain,40),trickRoom:!!condition.trickRoom,
+        tailwind:{mine:!!condition.tailwind?.mine,opponent:!!condition.tailwind?.opponent}};
+    }
     const activeNames=new Set((result.myActive||[]).map(p=>p.name?.toLowerCase()).filter(Boolean));
     result.myParty=(Array.isArray(game.myParty)?game.myParty:[]).slice(0,12).map(p=>({
       slot:Number.isInteger(p?.slot)?p.slot:null,name:clean(p?.name,65),species:clean(p?.species,65),
       hp:clean(p?.hp,25),status:clean(p?.status,15),active:!!p?.active||activeNames.has(String(p?.name||'').toLowerCase()),
       fainted:!!p?.fainted,moves:Array.isArray(p?.moves)?p.moves.slice(0,6).map(m=>clean(m,65)).filter(Boolean):[],
-      ability:clean(p?.ability,65),item:clean(p?.item,65),teraType:clean(p?.teraType,25)
+      ability:clean(p?.ability,65),item:clean(p?.item,65),teraType:clean(p?.teraType,25),
+      speed:Number.isInteger(p?.speed)&&p.speed>0?p.speed:null,
+      level:Number.isInteger(p?.level)&&p.level>=1&&p.level<=100?p.level:null
     })).filter(p=>p.species);
     // Match move-request slots by active field order, not by the original party
     // index: the active Pokemon may have switched positions in a Doubles battle.
@@ -131,8 +141,27 @@
       partyMon.currentMoves=requested.slice(0,6).map(m=>({name:clean(m?.name,65),pp:Number.isInteger(m?.pp)?m.pp:null,
         maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:clean(m?.target,35)}));
     }
-    if(!(result.myActive||[]).length && Array.isArray(game.myActive)) result.myActive=game.myActive.slice(0,3);
-    if(!(result.opponentActive||[]).length && Array.isArray(game.opponentActive)) result.opponentActive=game.opponentActive.slice(0,3);
+    function mergeField(displayed,observed) {
+      const inDom=Array.isArray(displayed)?displayed:[];
+      const inClient=Array.isArray(observed)?observed:[];
+      const used=new Set();
+      const merged=inDom.map((p,i)=>{
+        let index=inClient.findIndex((mon,j)=>!used.has(j) &&
+          (p.name?.toLowerCase()===mon.name?.toLowerCase() ||
+          p.species?.toLowerCase()===mon.species?.toLowerCase()));
+        if(index<0 && inClient.length===inDom.length && !used.has(i))index=i;
+        const details=index>=0?inClient[index]:{};
+        if(index>=0)used.add(index);
+        return {...details,...p,
+          level:Number.isInteger(details.level)?details.level:null,
+          baseSpeed:Number.isInteger(details.baseSpeed)?details.baseSpeed:null,
+          speedStage:Number.isInteger(details.speedStage)?details.speedStage:0,
+          ability:clean(details.ability,65),item:clean(details.item,65)};
+      });
+      return (merged.length?merged:inClient).slice(0,3);
+    }
+    result.myActive=mergeField(result.myActive,game.myActive);
+    result.opponentActive=mergeField(result.opponentActive,game.opponentActive);
     const prior=result.opponentRevealed||[];
     const fromClient=Array.isArray(game.opponentKnown)?game.opponentKnown.map(p=>({...p,source:'client'})):[];
     const turn=result.turn;

@@ -94,9 +94,15 @@
     const base=window.ZyncezReader.read();
     try {
       const r=await request({type:'ZYNCEZ_READ_GAME',roomId:base.roomId||''});
-      if(r?.ok) return window.ZyncezBattleState.enrichState(base,r.game);
+      if(r?.ok) {
+        const state=window.ZyncezBattleState.enrichState(base,r.game);
+        state.speedAnalysis=window.ZyncezSpeed.analyze(state);
+        return state;
+      }
     } catch { /* The DOM reader remains a fallback if game data is inaccessible. */ }
-    return window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});
+    const fallback=window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});
+    fallback.speedAnalysis=window.ZyncezSpeed.analyze(fallback);
+    return fallback;
   }
   function showBattleInfo(state) {
     if(!state.battleFound && state.gameReadStatus!=='connected'){battleInfo.textContent='No battle detected in the current Showdown room.';return;}
@@ -104,7 +110,10 @@
     const seen=state.opponentRevealed.map(p=>p.species).join(', ') || 'none yet';
     const team=state.myParty?.length ? ` | Your party: ${state.myParty.map(p=>p.species+(p.moves?.length?` (${p.moves.length} moves)`:' (moves unknown)')).join(', ')}` : ' | Party moves unavailable';
     const recorded=state.opponentMovesSeen?.reduce((n,p)=>n+p.moves.length,0)||0;
-    battleInfo.textContent=`Opponent active: ${active} | Revealed: ${seen}${state.opponentUnknownSlots ? ` | Hidden slots: ${state.opponentUnknownSlots}` : ''}${team} | Opponent moves seen: ${recorded}`;
+    const speed=state.speedAnalysis?.matchups||[];
+    const likely=speed.filter(x=>x.order==='before').length;
+    const note=speed.length?` | Speed: ${likely}/${speed.length} same-priority matchups ahead of the standard opponent Speed range (uncertain modifiers apply)`:'';
+    battleInfo.textContent=`Opponent active: ${active} | Revealed: ${seen}${state.opponentUnknownSlots ? ` | Hidden slots: ${state.opponentUnknownSlots}` : ''}${team} | Opponent moves seen: ${recorded}${note}`;
   }
   const context={opponentTypes:[]};
   let mode='gpt',hasKey=false,busy=false,history=[],catalog=null,recentIds=[];

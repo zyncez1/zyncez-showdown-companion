@@ -1,4 +1,12 @@
-# Zyncez AI Battle Companion (v0.10)
+## v0.11: On-demand Speed-aware battle decisions
+
+When you ask a question or press refresh, the extension reads your battle's visible team and current field, and calculates **Speed tiers**. It uses your actual unboosted Speed from Showdown's own player-side battle request, your on-field Speed stages, status, held item and known ability, and visible Tailwind/Trick Room/weather/terrain. For an opponent it looks up the **public species base Speed** through Showdown's client Dex and computes an **estimated min–max** at the displayed level (0–31 IVs, 0–252 Speed EVs, Speed-lowering to Speed-boosting natures). Unknown enemy abilities/items, and unsupported effects are **not invented**. A Speed comparison assumes **equal priority**, no unforeseen abilities or item effects, and no speed ties; switches and priority moves can override it. Trick Room reverses the direction. No damage values are asserted or calculated yet; move ranking remains contextual AI advice, not a full deterministic damage simulator.
+
+Ask **`speed`** in Local mode for a Speed summary, or **“Who moves first and what's my best play?”** in OpenRouter mode. It still makes **zero AI calls** until you press Send.
+
+**Supported baseline:** modern standard Pokémon rules, with on-demand reading and conservative fallbacks. Unusual abilities, moves and nonstandard/metagame effects may require confirmation. OpenRouter API key stays in local browser extension storage. Live Opera compatibility still needs verification.
+
+# Zyncez AI Battle Companion (v0.11)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -14,7 +22,7 @@ A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messe
 
 You only need to paste the key once per browser profile/extension installation. **To change models, use the quick-switch dropdown or Browse button at the top of the Showdown messenger, or use the extension toolbar popup.** Browse provides search, a Free only checkbox, and available token prices. Model selection saves immediately without making an AI request. The exact model ID field remains available as an advanced fallback. You can replace/remove the key later in ⚙ Settings. **Local commands** can be selected for basic offline type matchups, and need no API key.
 
-## v0.10 — Short, Medium, and Long conversation controls
+## v0.11 — Short, Medium, and Long conversation controls
 
 - Choose **Short** for quick, human-style conversational replies (normally 1–3 sentences), **Medium** for a little extra reasoning, or **Long** for detailed explanations when a question warrants it. A basic greeting stays a greeting in every mode.
 - Change the response length **instantly from the messenger's Reply length selector** without opening settings. It's also available under personality settings in both the in-page ⚙ panel and the Opera/Chrome toolbar popup.
@@ -106,7 +114,7 @@ Do not commit API keys to Git. All API credentials belong in the extension's Set
 
 ## v0.8 — Reasoning model response fix
 
-- Fixed an overly restrictive `max_tokens: 1200` limit that could be exhausted by reasoning models (such as Claude Opus) before producing visible text. The request now provides a 4096-token **maximum** with low reasoning effort and asks for a concise user-visible answer. Higher capacity is not a guarantee of a reply and may increase the maximum potential bill for a request.
+- Fixed an overly restrictive `max_tokens: 1200` limit that could be exhausted by reasoning models (such as Claude Opus) before producing visible text. The request now provides an 8192-token **maximum** with low reasoning effort and asks for a concise user-visible answer. Higher capacity is not a guarantee of a reply and may increase the maximum potential bill for a request.
 - Handles ordinary string answers, text content-part arrays, and common completion text wrappers while explicitly avoiding hidden reasoning output.
 - If OpenRouter still returns empty content, the messenger reports the selected model, completion finish reason, and any output-token count available instead of incorrectly suggesting the model ID is invalid. Responses that end at the token limit display specific guidance.
 - There are no automatic retries or extra provider calls. AI requests still happen only when **Send** is pressed; each request can incur charges.

@@ -40,20 +40,42 @@
       const active=!!p.active;
       const status=condition.match(/\b(brn|psn|tox|par|slp|frz|fnt)\b/i)?.[0]||'';
       return {slot:index+1,name,species:detail||name,active,fainted:/\bfnt\b/i.test(condition),hp,status,moves,
-        ability:text(p.ability||p.baseAbility,60),item:text(p.item,60),teraType:text(p.teraType,25)};
+        ability:text(p.ability||p.baseAbility,60),item:text(p.item,60),teraType:text(p.teraType,25),
+        speed:Number.isInteger(p?.stats?.spe)&&p.stats.spe>0?p.stats.spe:null,
+        level:Number((p.details||'').match(/\bL(\d{1,3})\b/)?.[1])||
+          (Number.isInteger(p.level)?p.level:null)};
     }).filter(Boolean);
+    // Move priority is public move metadata; don't invent it for unknown moves.
+    const movePriority=(move)=>{
+      try { const info=window.Dex?.moves?.get?.(move); return Number.isInteger(info?.priority)?info.priority:null; }
+      catch { return null; }
+    };
     // Active request includes displayed PP/disabled state, unlike the full roster.
     const activeMoves=Array.isArray(request?.active)?request.active.slice(0,3).map((a,index)=>({
       slot:index+1,moves:Array.isArray(a?.moves)?a.moves.slice(0,6).map(m=>({
         name:text(m?.name||m?.id,70),pp:Number.isInteger(m?.pp)?m.pp:null,
-        maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:text(m?.target,40)
+        maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:text(m?.target,40),
+        priority:movePriority(m?.id||m?.name)
       })):[]
     })):[];
+    const getBaseSpeed=(species)=>{
+      try {
+        const dex=window.Dex;
+        const key=String(species||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+        const entry=dex?.species?.get?.(species)||window.BattlePokedex?.[key];
+        const value=entry?.baseStats?.spe;
+        return Number.isInteger(value)&&value>0?value:null;
+      } catch { return null; }
+    };
     const snapSide=(side)=>Array.isArray(side?.active)?side.active.slice(0,3).filter(Boolean).map(p=>({
       name:text(p.name,65),species:text(p.speciesForme||p.name,65),
       hp:Number.isFinite(p.hp) && Number.isFinite(p.maxhp)&&p.maxhp>0 ?
         `${Math.round(p.hp/p.maxhp*100)}%`:text(p.getHPText?.(),25),
-      status:text(p.status,15)
+      status:text(p.status,15),
+      level:Number.isInteger(p.level)?p.level:100,
+      speedStage:Number.isInteger(p.boosts?.spe)?p.boosts.spe:0,
+      ability:text(p.ability,60),item:text(p.item,60),
+      baseSpeed:getBaseSpeed(p.speciesForme||p.name)
     })):[];
     const knownOpposing=Array.isArray(battle.farSide?.pokemon)?battle.farSide.pokemon.slice(0,12).map(p=>({
       name:text(p?.name,65),species:text(p?.speciesForme||p?.name,65),fainted:!!p?.fainted
@@ -63,11 +85,19 @@
     const protocol=Array.isArray(battle.stepQueue)?battle.stepQueue
       .filter(line=>typeof line==='string'&&line.length<=450&&safeProtocol.test(line))
       .slice(-300).map(line=>line.slice(0,300)):[];
+    const hasCondition=(side,key)=>Object.keys(side?.sideConditions||{}).some(k=>k.toLowerCase().replace(/[^a-z0-9]/g,'')===key);
+    const pseudo=(battle.pseudoWeather||[]).map(x=>String(Array.isArray(x)?x[0]:x||'').toLowerCase().replace(/[^a-z0-9]/g,''));
+    const battleConditions={generation:Number.isInteger(battle.gen)?battle.gen:9,
+      weather:text(battle.weather,35),
+      terrain:pseudo.find(x=>['electricterrain','grassyterrain','mistyterrain','psychicterrain'].includes(x))||'',
+      trickRoom:pseudo.includes('trickroom'),
+      tailwind:{mine:hasCondition(battle.nearSide,'tailwind'),opponent:hasCondition(battle.farSide,'tailwind')}
+    };
     const sideNum=battle.farSide?.n;
     return {
       available:true,roomId:text(room.id,160),myParty:roster,activeMoves,
       myActive:snapSide(battle.nearSide),opponentActive:snapSide(battle.farSide),
-      opponentKnown:knownOpposing,opponentSideId:Number.isInteger(sideNum)?`p${sideNum+1}`:'',
+      opponentKnown:knownOpposing,battleConditions,opponentSideId:Number.isInteger(sideNum)?`p${sideNum+1}`:'',
       protocol
     };
   }

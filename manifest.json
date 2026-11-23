@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.10.0",
-  "description": "On-demand Pokémon Showdown companion with Short, Medium, and Long replies, safe formatting, and custom personalities.",
+  "version": "0.11.0",
+  "description": "On-demand Pokémon Showdown companion with on-demand Speed analysis, team awareness, and conversational coaching.",
   "permissions": [
     "scripting",
     "storage"
@@ -21,6 +21,7 @@
       "js": [
         "src/types.js",
         "src/battle-state.js",
+        "src/speed.js",
         "src/reader.js",
         "src/coach.js",
         "src/message-format.js",

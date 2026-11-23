@@ -16,6 +16,14 @@
       return state.battleEvents.filter(e=>['move','switch','drag','faint','-status','-ability','-terastallize'].includes(e.type)).slice(-12)
         .map(e=>`Turn ${e.turn??'?'}: ${e.side||'field'} ${e.pokemon||''} ${e.type==='move'?'used '+e.move:e.type} ${e.detail||''}`.trim()).join('\n');
     }
+    if (/^(?:show |check |compare )?(?:my )?(?:speed|speed tiers?|turn order|who (?:moves|goes) first|am i faster)(?:\?)?$/i.test(q)) {
+      const x=state.speedAnalysis;
+      if(!x?.myActive?.length||!x?.opponentActive?.length) return 'I can’t compare Speed yet. Make sure a battle is open and try ↻ or ask again.';
+      const own=x.myActive.map(p=>`${p.species||p.name}: ${p.estimatedSpeed??'unknown'}${p.modifiers.length?` (${p.modifiers.join(', ')})`:''}`).join('; ');
+      const foes=x.opponentActive.map(p=>`${p.species||p.name}: ${p.range?`${p.range.min}–${p.range.max} estimated`:'unknown'}${p.modifiers.length?` (${p.modifiers.join(', ')})`:''}`).join('; ');
+      const order=x.matchups.map(p=>`${p.mine} vs ${p.opponent}: ${p.order==='before'?'likely first':p.order==='after'?'likely second':'uncertain'}`).join('; ');
+      return `Your Speed: ${own}. Opponent ranges: ${foes}. ${x.field.trickRoom?'Trick Room is active; slower Pokémon act first at equal priority. ':''}${order}. This assumes equal move priority and no unobserved items or abilities.`;
+    }
     if (!q) return 'Ask me a question to start.';
     if (/^(help|\/help|what can you do)\??$/i.test(q))
       return 'Try: “battle status”, “what moves can I click?”, “fire vs grass/steel”, “set opponent type water flying”, “weaknesses”, or “best move”. I only inspect the battle when you send a message or tap Refresh. Full LLM reasoning is planned for a later version.';

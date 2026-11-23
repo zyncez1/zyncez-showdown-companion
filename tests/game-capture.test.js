@@ -39,3 +39,28 @@ test('prefers focused battle when other battle tabs exist; no guessing if absent
   assert.equal(capture('battle-one').roomId,'battle-one');
   assert.equal(runCapture({})('battle-unknown').available,false);
 });
+
+test('captures Speed stages, public species base Speed, Tailwind and Trick Room on demand',()=>{
+  const context=vm.createContext({window:{PS:{},app:{},Dex:{species:{get:(name)=>({baseStats:{spe:name==='Garchomp'?102:100}})},
+    moves:{get:(name)=>({priority:name==='Protect'?4:0})}}},self:{},module:{exports:{}},Object,Number,Array,String});
+  const own={name:'Mine',speciesForme:'Garchomp',level:50,boosts:{spe:1},status:'par',hp:90,maxhp:100};
+  const foe={name:'Foe',speciesForme:'Garchomp',level:50,boosts:{spe:-1},status:'',hp:75,maxhp:100};
+  const room={id:'battle-gen9doublesou-456',request:{
+    side:{pokemon:[{ident:'p1a: Mine',details:'Garchomp, L50',stats:{spe:150},moves:['protect'],condition:'90/100',active:true}]},
+    active:[{moves:[{id:'Protect',name:'Protect',pp:10,maxpp:10}]}]
+  },battle:{gen:9,weather:'RainDance',pseudoWeather:[['trickroom',3,4]],
+    nearSide:{active:[own],sideConditions:{tailwind:['Tailwind',1,2,3]}},
+    farSide:{n:1,active:[foe],pokemon:[foe],sideConditions:{}},stepQueue:['|turn|3']}};
+  context.window.PS.room=room;
+  context.window.PS.rooms={"battle-gen9doublesou-456":room};
+  vm.runInContext(source,context);
+  const value=context.module.exports.capture('battle-gen9doublesou-456');
+  assert.equal(value.myParty[0].speed,150);
+  assert.equal(value.myActive[0].speedStage,1);
+  assert.equal(value.opponentActive[0].baseSpeed,102);
+  assert.equal(value.opponentActive[0].speedStage,-1);
+  assert.equal(value.battleConditions.weather,'RainDance');
+  assert.equal(value.battleConditions.trickRoom,true);
+  assert.equal(value.battleConditions.tailwind.mine,true);
+  assert.equal(value.activeMoves[0].moves[0].priority,4);
+});
