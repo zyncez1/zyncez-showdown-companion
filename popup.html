@@ -46,8 +46,13 @@
         <label for="personality-notes">Your own personality instructions (optional)</label>
         <textarea id="personality-notes" maxlength="1600" rows="4" placeholder="Example: Talk like a close gaming friend. Joke around, call out my mistakes kindly, and explain WHY a move is good. Don't give me generic numbered reports."></textarea>
         <p class="help">Your preferences apply to replies when you press Send. They don't change battle facts or make the AI act automatically.</p>
-        <label for="reply-style">Response depth</label>
-        <select id="reply-style"><option value="natural">Natural conversation (recommended)</option><option value="detailed">More detailed explanations</option></select>
+        <label for="reply-style">Response length</label>
+        <select id="reply-style">
+          <option value="short">Short — quick, natural replies</option>
+          <option value="medium">Medium — a little extra explanation</option>
+          <option value="long">Long — full details when helpful</option>
+        </select>
+        <p class="help">Length is separate from personality. You can also switch it right inside the Showdown messenger.</p>
       </fieldset>
       <button class="primary" id="save" type="submit">Save settings & personality</button>
       <button class="secondary" type="button" id="remove">Remove saved API key</button>

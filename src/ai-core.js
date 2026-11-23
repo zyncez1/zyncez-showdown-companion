@@ -12,12 +12,17 @@
     calm: 'Calm, supportive, level-headed companion. Explain things simply without overwhelming the player.',
     custom: 'Use the player-supplied personality notes while keeping the same accuracy and safety rules.'
   });
+  const REPLY_STYLES = Object.freeze({
+    short: 'Short: respond like a friend in normal conversation. Usually 1–3 clear sentences. Lead with the answer or move choice. No headings, numbered reports, or unnecessary extra details. For Doubles, name both recommended actions when needed. Do not withhold essential context or safety information.',
+    medium: 'Medium: give the recommendation plus a little helpful reasoning, usually a short paragraph or two. Mention the main trade-off or safer alternative if useful. Stay conversational, not lecture-like; avoid headings unless they make the answer clearer.',
+    long: 'Long: give an in-depth explanation when the question merits it, considering relevant alternatives, risks, and battle mechanics. Organize longer information for readability while still sounding like a person talking to a friend; do not pad greetings or simple answers.'
+  });
   const INSTRUCTIONS = [
     'You are Zyncez AI, a knowledgeable Pokémon Showdown companion chatting naturally with another human player.',
     'Speak directly to the user like a real gaming friend, not a book, textbook, or formal report. Sound natural, not corporate or robotic.',
     'Use conversational paragraphs. Avoid automatic headings, bullet lists, exhaustive sections, recap blocks, and stiff labels like Estimate: or Unknown: unless the user asks or structure clearly helps.',
     'Match the question: say hi when they say hi; give an actual recommendation when they ask for one; give full thoughtful explanations when they ask you to go in depth.',
-    'Do NOT summarize or arbitrarily shorten your answers because of token limits. Be as detailed as the question warrants, without repetitive filler. Do not talk about tokens.',
+    'Follow the selected response length for ordinary questions; the user can ask for a different level of detail in a specific message. Do not mention tokens or claim your length setting is a model-token limit.',
     'Use Markdown **bold** or `code` sparingly for emphasis only; the UI renders these. Do not write visible Markdown instructions about formatting.',
     'Only answer when asked. Never initiate messages or control any Pokémon Showdown interface.',
     'The on-demand battle snapshot may be incomplete; do not invent missing facts.',
@@ -37,7 +42,9 @@
     return {
       personality: Object.hasOwn(PERSONALITIES, s.personality) ? s.personality : 'friendly',
       personalityNotes: typeof s.personalityNotes === 'string' ? s.personalityNotes.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').slice(0,1600).trim() : '',
-      replyStyle: s.replyStyle === 'detailed' ? 'detailed' : 'natural'
+      // Upgrade existing v0.9 preferences without losing the intended level of detail.
+      replyStyle: s.replyStyle === 'detailed' ? 'long' : s.replyStyle === 'natural' ? 'medium' :
+        Object.hasOwn(REPLY_STYLES, s.replyStyle) ? s.replyStyle : 'short'
     };
   }
   function cleanText(v, n) {
@@ -103,7 +110,8 @@
     const prefs = sanitizePreferences(preferences);
     const personalityPrompt = `Personality: ${PERSONALITIES[prefs.personality]}` +
       (prefs.personalityNotes ? `\nPlayer's additional personality preferences: ${prefs.personalityNotes}` : '') +
-      (prefs.replyStyle === 'detailed' ? '\nResponse style: in-depth and comprehensive, while still sounding like a normal conversation.' : '\nResponse style: natural conversation with enough detail to answer fully, never clipped or formulaically summarized.');
+      `\nResponse length: ${prefs.replyStyle.toUpperCase()}. ${REPLY_STYLES[prefs.replyStyle]}` +
+      '\nSpeak naturally, not in stiff textbook sections. If the player explicitly asks for more or less detail in this message, honor that request.';
     return {
       model,
       messages:[
@@ -178,7 +186,7 @@
     if (!answer) throw emptyReplyError(json,model);
     return answer;
   }
-  const api={DEFAULT_MODEL,ENDPOINT,OUTPUT_TOKEN_BUDGET,PERSONALITIES,sanitizePreferences,validModel,sanitizeSnapshot,sanitizeHistory,buildPayload,extractReply,emptyReplyError,askOpenRouter};
+  const api={DEFAULT_MODEL,ENDPOINT,OUTPUT_TOKEN_BUDGET,PERSONALITIES,REPLY_STYLES,sanitizePreferences,validModel,sanitizeSnapshot,sanitizeHistory,buildPayload,extractReply,emptyReplyError,askOpenRouter};
   if (typeof module!=='undefined' && module.exports) module.exports=api;
   if (root) root.ZyncezAI=api;
 })(typeof self!=='undefined' ? self : globalThis);

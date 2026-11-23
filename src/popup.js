@@ -64,7 +64,7 @@
       hasKey=reply.hasKey;
       personality.value=reply.personality||'friendly';
       personalityNotes.value=reply.personalityNotes||'';
-      replyStyle.value=reply.replyStyle||'natural';
+      replyStyle.value=reply.replyStyle||'short';
       updateStatus();
     } catch (error) {message(error.message,true);status.textContent='Error';}
   }

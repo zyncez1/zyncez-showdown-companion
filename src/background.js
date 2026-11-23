@@ -37,6 +37,12 @@ async function handle(msg,sender) {
     await chrome.storage.local.set(settings);
     return {ok:true,mode,model,...preferences,hasKey:newKey?true:!!(await chrome.storage.local.get('zyncezApiKey')).zyncezApiKey};
   }
+  if (msg.type==='ZYNCEZ_SET_REPLY_STYLE') {
+    // Quick length switch: never starts an AI call or changes any other preferences.
+    if (!Object.hasOwn(ZyncezAI.REPLY_STYLES,msg.replyStyle)) throw new Error('Choose Short, Medium, or Long.');
+    await chrome.storage.local.set({zyncezReplyStyle:msg.replyStyle});
+    return {ok:true,replyStyle:msg.replyStyle};
+  }
   if (msg.type==='ZYNCEZ_SET_MODEL') {
     const model=String(msg.model||'').trim();
     if (!ZyncezAI.validModel(model)) throw new Error('Choose a valid OpenRouter model.');
@@ -78,7 +84,7 @@ async function handle(msg,sender) {
   return {ok:false,error:'Unknown extension action.'};
 }
 chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
-  if (!msg || !['ZYNCEZ_GET_SETTINGS','ZYNCEZ_SAVE_SETTINGS','ZYNCEZ_SET_MODEL','ZYNCEZ_LIST_MODELS','ZYNCEZ_REMOVE_KEY','ZYNCEZ_READ_GAME','ZYNCEZ_ASK'].includes(msg.type)) return false;
+  if (!msg || !['ZYNCEZ_GET_SETTINGS','ZYNCEZ_SAVE_SETTINGS','ZYNCEZ_SET_MODEL','ZYNCEZ_LIST_MODELS','ZYNCEZ_REMOVE_KEY','ZYNCEZ_READ_GAME','ZYNCEZ_ASK','ZYNCEZ_SET_REPLY_STYLE'].includes(msg.type)) return false;
   if (!allowedSender(sender,msg.type)) {respond({ok:false,error:'Only the Zyncez extension and Pokémon Showdown messenger can send requests.'});return false;}
   Promise.resolve().then(()=>handle(msg,sender)).then(respond,error=>respond({ok:false,error:error?.message||'Extension request failed.'}));
   return true;

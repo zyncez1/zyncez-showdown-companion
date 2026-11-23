@@ -1,4 +1,4 @@
-# Zyncez AI Battle Companion (v0.9)
+# Zyncez AI Battle Companion (v0.10)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -13,6 +13,15 @@ A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messe
 7. If you prefer, the exact same settings are also behind **⚙** inside the in-game messenger. The message panel rechecks saved settings when you open it or send a question.
 
 You only need to paste the key once per browser profile/extension installation. **To change models, use the quick-switch dropdown or Browse button at the top of the Showdown messenger, or use the extension toolbar popup.** Browse provides search, a Free only checkbox, and available token prices. Model selection saves immediately without making an AI request. The exact model ID field remains available as an advanced fallback. You can replace/remove the key later in ⚙ Settings. **Local commands** can be selected for basic offline type matchups, and need no API key.
+
+## v0.10 — Short, Medium, and Long conversation controls
+
+- Choose **Short** for quick, human-style conversational replies (normally 1–3 sentences), **Medium** for a little extra reasoning, or **Long** for detailed explanations when a question warrants it. A basic greeting stays a greeting in every mode.
+- Change the response length **instantly from the messenger's Reply length selector** without opening settings. It's also available under personality settings in both the in-page ⚙ panel and the Opera/Chrome toolbar popup.
+- Each choice is saved in the existing browser extension storage; no extra OpenRouter request happens when changing length. AI still answers only when you press **Send**.
+- Personality and response length work independently. Existing v0.9 Natural maps to Medium; existing Detailed maps to Long. New installations default to Short.
+- Length changes control **reply style**, not the API's reasoning/output token budget. Keeping the existing budget avoids accidentally cutting off reasoning-model answers. Explicit requests for shorter/longer explanations in chat also work.
+- Verify with `node --test tests/*.test.js`; browser compatibility with your Opera installation and paid OpenRouter model has to be confirmed locally.
 
 ## v0.9 — Natural chat, rich formatting, and personality controls
 

@@ -14,6 +14,8 @@
     .modelbar{pointer-events:auto;display:flex;align-items:center;gap:7px;padding:8px 12px;background:#1d2035;border-bottom:1px solid #41435c;font-size:11px}
     .modelbar label{color:#b6bfe4;white-space:nowrap}.modelbar select{min-width:0;flex:1;appearance:auto;border-radius:7px;background:#292d49;border:1px solid #545775;color:white;padding:7px;font-size:11px}
     .modelbar button{white-space:nowrap;border:1px solid #545775;background:#353958;color:#fff;border-radius:7px;padding:7px;cursor:pointer}
+    .lengthbar{pointer-events:auto;display:flex;align-items:center;gap:9px;padding:6px 12px;background:#1b2035;border-bottom:1px solid #41435c;font-size:11px}
+    .lengthbar label{color:#c1c9ef;white-space:nowrap}.lengthbar select{flex:1;min-width:0;padding:5px 8px;border:1px solid #545775;border-radius:7px;background:#292d49;color:#fff;font:inherit;cursor:pointer}
     .picker{pointer-events:auto;max-height:240px;padding:10px;background:#20243c;border-bottom:1px solid #525675;display:flex;flex-direction:column;gap:7px}
     .picker-controls{display:flex;gap:7px;align-items:center}.picker input[type=search]{min-width:0;flex:1;padding:9px;background:#282c49;border:1px solid #545775;color:white;border-radius:8px}
     .picker label{font-size:11px;color:#bfc6e8;white-space:nowrap}.picker input[type=checkbox]{accent-color:#7665f8}
@@ -47,6 +49,7 @@
     <div class="header"><div><div class="title">⚡ Zyncez AI Companion</div><div class="sub" data-status>Checking settings…</div></div>
       <div class="controls"><button type="button" data-settings title="AI settings">⚙</button><button type="button" data-refresh title="Read battle status locally">↻</button><button type="button" data-clear title="Clear chat">Clear</button><button type="button" data-close title="Minimize">−</button></div></div>
     <div class="modelbar"><label for="zyncez-quick-model">AI model</label><select id="zyncez-quick-model" data-quick-model aria-label="Quick switch AI model"></select><button type="button" data-browse-models title="Search all available OpenRouter models">Browse</button></div>
+    <div class="lengthbar"><label for="zyncez-quick-length">Reply length</label><select id="zyncez-quick-length" data-quick-length aria-label="Choose reply length"><option value="short">Short · just talk</option><option value="medium">Medium · a little more</option><option value="long">Long · full details</option></select></div>
     <div class="picker hidden" data-model-picker>
       <div class="picker-controls"><input data-model-search type="search" placeholder="Search models…" aria-label="Search OpenRouter models"><label><input type="checkbox" data-free-only> Free only</label></div>
       <div data-model-count class="picker-info" aria-live="polite">Click Browse to load models.</div><div class="picker-results" data-model-results role="list"></div>
@@ -67,8 +70,8 @@
       </select>
       <label for="zyncez-notes">Custom personality instructions (optional)</label>
       <textarea id="zyncez-notes" data-personality-notes maxlength="1600" rows="3" placeholder="Example: Talk like a close gaming friend; joke with me and explain your reasoning without boring reports."></textarea>
-      <label for="zyncez-reply-style">Response depth</label>
-      <select id="zyncez-reply-style" data-reply-style><option value="natural">Natural conversation</option><option value="detailed">Detailed explanations</option></select>
+      <label for="zyncez-reply-style">Response length</label>
+      <select id="zyncez-reply-style" data-reply-style><option value="short">Short — quick, natural replies</option><option value="medium">Medium — a little explanation</option><option value="long">Long — full details</option></select>
       <div class="actions"><button type="button" class="save" data-save>Save settings</button><button type="button" class="remove" data-remove>Remove key</button></div>
       <p class="message-status" data-saved></p>
       <p><a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer noopener">Get an OpenRouter API key</a>. A saved key stays in this browser profile, not in your ZIP or Git repo. Anyone with access to your browser profile may be able to recover it. API usage can cost money.</p>
@@ -82,7 +85,7 @@
   const messages=panel.querySelector('.messages'),input=panel.querySelector('.footer input'),sendButton=panel.querySelector('.send'),status=panel.querySelector('[data-status]');
   const settingsPane=panel.querySelector('[data-settings-pane]'),modeSelect=panel.querySelector('[data-mode]'),modelInput=panel.querySelector('[data-model]'),keyInput=panel.querySelector('[data-key]');
   const keyStatus=panel.querySelector('[data-key-status]'),saved=panel.querySelector('[data-saved]');
-  const personalitySelect=panel.querySelector('[data-personality]'), personalityNotes=panel.querySelector('[data-personality-notes]'), replyStyleSelect=panel.querySelector('[data-reply-style]');
+  const personalitySelect=panel.querySelector('[data-personality]'), personalityNotes=panel.querySelector('[data-personality-notes]'), replyStyleSelect=panel.querySelector('[data-reply-style]'), quickLength=panel.querySelector('[data-quick-length]');
   const quickModel=panel.querySelector('[data-quick-model]'),modelPicker=panel.querySelector('[data-model-picker]');
   const browseButton=panel.querySelector('[data-browse-models]'),modelSearch=panel.querySelector('[data-model-search]');
   const freeOnly=panel.querySelector('[data-free-only]'),modelResults=panel.querySelector('[data-model-results]'),modelCount=panel.querySelector('[data-model-count]');
@@ -162,7 +165,7 @@
     try {
       const data=await request({type:'ZYNCEZ_GET_SETTINGS'});
       if (!data?.ok) throw new Error(data?.error||'Could not read settings.');
-      mode=data.mode;hasKey=data.hasKey;modeSelect.value=mode;modelInput.value=data.model;personalitySelect.value=data.personality||'friendly';personalityNotes.value=data.personalityNotes||'';replyStyleSelect.value=data.replyStyle||'natural';recentIds=data.recentModels||[];renderRecent(data.model);updateStatus();if(!hasKey && mode==='gpt') settingsPane.classList.remove('hidden');
+      mode=data.mode;hasKey=data.hasKey;modeSelect.value=mode;modelInput.value=data.model;personalitySelect.value=data.personality||'friendly';personalityNotes.value=data.personalityNotes||'';replyStyleSelect.value=data.replyStyle||'short';quickLength.value=data.replyStyle||'short';recentIds=data.recentModels||[];renderRecent(data.model);updateStatus();if(!hasKey && mode==='gpt') settingsPane.classList.remove('hidden');
     } catch (error) {status.textContent='Settings unavailable';saved.textContent=error.message;}
   }
   add('bot','Hi! I only answer when you ask. To connect OpenRouter, click the Zyncez extension icon in your browser toolbar and paste your API key. You can also use ⚙ here.');
@@ -170,12 +173,23 @@
   function toggle(force){const open=typeof force==='boolean'?force:panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);launcher.setAttribute('aria-expanded',String(open));if(open){loadSettings();input.focus();}}
   launcher.addEventListener('click',()=>toggle());panel.querySelector('[data-close]').addEventListener('click',()=>toggle(false));
   panel.querySelector('[data-settings]').addEventListener('click',()=>{settingsPane.classList.toggle('hidden');if(!settingsPane.classList.contains('hidden'))modelInput.focus();});
+  quickLength.addEventListener('change',async()=>{
+    const selected=quickLength.value;
+    try {
+      const result=await request({type:'ZYNCEZ_SET_REPLY_STYLE',replyStyle:selected});
+      if(!result?.ok) throw new Error(result?.error||'Could not change reply length.');
+      replyStyleSelect.value=result.replyStyle;
+    } catch(error) {
+      quickLength.value=replyStyleSelect.value;
+      saved.textContent=error?.message||'Could not change reply length.';
+    }
+  });
   panel.querySelector('[data-save]').addEventListener('click',async()=>{
     const key=keyInput.value.trim();saved.textContent='Saving settings…';
     try {
       const response=await request({type:'ZYNCEZ_SAVE_SETTINGS',mode:modeSelect.value,model:modelInput.value.trim(),key,personality:personalitySelect.value,personalityNotes:personalityNotes.value,replyStyle:replyStyleSelect.value});
       if (!response?.ok) throw new Error(response?.error||'Failed to save.');
-      mode=response.mode;hasKey=response.hasKey;recentIds=[response.model,...recentIds];renderRecent(response.model);keyInput.value='';updateStatus();saved.textContent='Saved!';settingsPane.classList.add('hidden');
+      mode=response.mode;hasKey=response.hasKey;replyStyleSelect.value=response.replyStyle;quickLength.value=response.replyStyle;recentIds=[response.model,...recentIds];renderRecent(response.model);keyInput.value='';updateStatus();saved.textContent='Saved!';settingsPane.classList.add('hidden');
     } catch (error) {saved.textContent=error.message;}
     finally {keyInput.value='';}
   });
