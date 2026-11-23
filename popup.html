@@ -20,7 +20,16 @@
         <button type="button" id="show-key" aria-label="Show or hide API key" title="Show/hide key">Show</button>
       </div>
       <p class="help" id="key-help">Enter your key once. A saved key is never displayed again.</p>
-      <label for="model">AI model ID</label>
+      <label for="recent-models">Quick switch AI model</label>
+      <select id="recent-models" aria-label="Choose a recent AI model"></select>
+      <button class="browse" id="browse-models" type="button">🔎 Browse OpenRouter models</button>
+      <section id="model-picker" class="model-picker" hidden aria-label="Browse OpenRouter models">
+        <div class="picker-top"><input id="model-search" type="search" placeholder="Search GPT, Claude, Gemini, free…" autocomplete="off" aria-label="Search models" maxlength="100">
+        <label class="free-only"><input id="model-free" type="checkbox"> Free only</label></div>
+        <p id="model-count" class="help" aria-live="polite">Open the catalog to search for a model.</p>
+        <div id="model-results" class="model-results" role="list"></div>
+      </section>
+      <label for="model">Exact model ID (advanced)</label>
       <input id="model" type="text" value="openai/gpt-5-mini" autocomplete="off" spellcheck="false" maxlength="150">
       <label for="mode">Chat mode</label>
       <select id="mode"><option value="gpt">OpenRouter AI (when I press Send)</option><option value="local">Local commands only (free)</option></select>
@@ -31,6 +40,7 @@
     <a class="showdown" href="https://play.pokemonshowdown.com/" target="_blank" rel="noopener noreferrer">Open Pokémon Showdown ↗</a>
     <p class="fine">Only sends a request when you press Send in the Showdown messenger. The key is stored in this browser profile; anyone with access to the profile may be able to recover it. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Get a key ↗</a></p>
   </main>
+  <script src="src/model-catalog.js"></script>
   <script src="src/popup.js"></script>
 </body>
 </html>

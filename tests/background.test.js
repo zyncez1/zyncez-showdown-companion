@@ -6,7 +6,7 @@ const vm=require('node:vm');
 const path=require('node:path');
 
 async function createHarness(){
-  const data={};const calls=[];const keys=[];let listener;
+  const data={};const calls=[];const keys=[];const requestBodies=[];let listener;
   const chrome={runtime:{id:'a'.repeat(32),getURL:(p)=>'chrome-extension://'+'a'.repeat(32)+'/'+p,onMessage:{addListener:fn=>listener=fn}},storage:{local:{
     async setAccessLevel(v){calls.push('lock');assert.equal(v.accessLevel,'TRUSTED_CONTEXTS');},
     async get(names){calls.push('read');const result={};for(const k of Array.isArray(names)?names:[names])result[k]=data[k];return result;},
@@ -15,15 +15,17 @@ async function createHarness(){
   }}};
   const context=vm.createContext({chrome,URL,AbortSignal,fetch:async(url,opts)=>{
     calls.push('fetch');keys.push(opts.headers.Authorization);
+    if(String(url).includes('/api/v1/models')) return {ok:true,json:async()=>({data:[{id:'openai/gpt-test',name:'GPT Test',pricing:{prompt:'0.000001',completion:'0.000002'}},{id:'qwen/qwen3:free',name:'Qwen Free',pricing:{prompt:'0',completion:'0'}}]})};
+    requestBodies.push(JSON.parse(opts.body));
     return {ok:true,json:async()=>({choices:[{message:{content:'Garchomp is fast.'}}]})};
   }});
   context.globalThis=context;context.self=context;
-  context.importScripts=(p)=>vm.runInContext(fs.readFileSync(path.join(__dirname,'..','src',p),'utf8'),context);
+  context.importScripts=(...paths)=>{for(const p of paths) vm.runInContext(fs.readFileSync(path.join(__dirname,'..','src',p),'utf8'),context);};
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','src','background.js'),'utf8'),context);
   const sender={id:chrome.runtime.id,frameId:0,tab:{url:'https://play.pokemonshowdown.com/'}};
   const message=(msg,s=sender)=>new Promise(resolve=>listener(msg,s,resolve));
   await new Promise(resolve=>setImmediate(resolve));
-  return {message,calls,keys,data};
+  return {message,calls,keys,data,requestBodies};
 }
 
 test('storage is locked to trusted contexts, key only saved after user action, no request until Ask',async()=>{
@@ -76,4 +78,25 @@ test('extension toolbar popup can save settings, but cannot initiate AI requests
   const removed=await h.message({type:'ZYNCEZ_REMOVE_KEY'},popup);
   assert.equal(removed.ok,true);
   assert.equal(h.data.zyncezApiKey,undefined);
+});
+
+
+test('browsing model catalog is opt-in; changing model never sends an AI query',async()=>{
+  const h=await createHarness();
+  const start=await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'openai/gpt-5-mini',key:'sk-or-test'});
+  assert.equal(start.ok,true);
+  assert.equal(h.calls.filter(x=>x==='fetch').length,0);
+  const catalog=await h.message({type:'ZYNCEZ_LIST_MODELS'});
+  assert.equal(catalog.ok,true);
+  assert.equal(catalog.models.length,2);
+  assert.equal(h.calls.filter(x=>x==='fetch').length,1);
+  const changed=await h.message({type:'ZYNCEZ_SET_MODEL',model:'qwen/qwen3:free'});
+  assert.equal(changed.ok,true);
+  assert.equal(changed.model,'qwen/qwen3:free');
+  assert.equal(h.calls.filter(x=>x==='fetch').length,1);
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).model,'qwen/qwen3:free');
+  const reply=await h.message({type:'ZYNCEZ_ASK',question:'How do I beat Pikachu?',state:{},history:[]});
+  assert.equal(reply.ok,true);
+  assert.equal(h.requestBodies.at(-1).model,'qwen/qwen3:free');
+  assert.equal(h.calls.filter(x=>x==='fetch').length,2);
 });

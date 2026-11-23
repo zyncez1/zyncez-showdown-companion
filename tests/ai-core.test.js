@@ -5,12 +5,18 @@ const {sanitizeSnapshot,sanitizeHistory,buildPayload,askOpenRouter,extractReply}
 
 test('AI payload uses only sanitized visible battle data, not log/usernames/URLs',()=>{
   const state={battleFound:true,turn:9,header:'player vs other',username:'SECRET_USER',url:'https://example',lines:['private chatter'],
-    pokemon:[{name:'Garchomp',hp:'79%',hidden:'SECRET'}],buttons:[{name:'Earthquake',action:'chooseMove'},{name:'Fake private',action:'chat'}]};
+    myActive:[{name:'Garchomp',species:'Garchomp',hp:'79%',hidden:'SECRET'}],
+    opponentActive:[{name:'Goldie',species:'Gholdengo',hp:'65%'}],
+    opponentRevealed:[{name:'Goldie',species:'Gholdengo',active:true},{name:'Dragonite',species:'Dragonite',active:false}],
+    opponentUnknownSlots:2,
+    buttons:[{name:'Earthquake',action:'chooseMove'},{name:'Fake private',action:'chat'}]};
   const payload=buildPayload({model:'openai/gpt-5-mini',question:'What now?',state,history:[{role:'user',content:'I play Doubles'}]});
-  assert.deepEqual(Object.keys(sanitizeSnapshot(state)),['battleFound','turn','pokemon','buttons']);
+  assert.deepEqual(Object.keys(sanitizeSnapshot(state)),['battleFound','turn','myActive','opponentActive','opponentRevealed','opponentUnknownSlots','buttons']);
   assert.equal(payload.messages[0].role,'system');
   assert.equal(payload.messages.at(-1).role,'user');
   assert.equal(payload.messages.at(-1).content.includes('Garchomp'),true);
+  assert.equal(payload.messages.at(-1).content.includes('Gholdengo'),true);
+  assert.equal(payload.messages.at(-1).content.includes('Dragonite'),true);
   for (const secret of ['SECRET_USER','SECRET','private chatter','Fake private','https://example']) {
     assert.equal(JSON.stringify(payload).includes(secret),false,`Leaked ${secret}`);
   }

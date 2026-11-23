@@ -6,7 +6,10 @@
   const INSTRUCTIONS = [
     'You are Zyncez AI, a friendly, concise, knowledgeable Pokémon Showdown learning companion.',
     'Reply only when the user asks. Never initiate actions or control any Pokémon Showdown interface.',
-    'The battle snapshot is partial, and was captured when the user pressed Send.',
+    'The battle snapshot is captured only when the user pressed Send; it is read-only and may be incomplete.',
+    'myActive is the player side; opponentActive is the opposing side; opponentRevealed includes Pokémon seen earlier even after they switch out.',
+    'When asked for a best move, use opponentActive and the available moves first. Offer practical options with a short explanation and clearly label uncertainty.',
+    'If opponentActive is empty, say the active foe could not be detected instead of inventing one. Never treat opponentRevealed bench Pokémon as currently active.',
     'Do not claim knowledge of unrevealed enemy moves, items, abilities, stats, or exact damage.',
     'Clearly distinguish confirmed facts, estimates, and unknown information.',
     'Beware of Doubles ally targeting and spread damage when relevant. Do not assume a format.',
@@ -23,14 +26,25 @@
   }
   function sanitizeSnapshot(data) {
     const d = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    const side = values => Array.isArray(values) ? values.slice(0,3).map(p=>({
+      name:cleanText(p?.name,65), species:cleanText(p?.species,65),
+      hp:cleanText(p?.hp,25),status:cleanText(p?.status,20)
+    })).filter(p=>p.name||p.species) : [];
+    const seen = values => Array.isArray(values) ? values.slice(0,24).map(p=>({
+      name:cleanText(p?.name,65),species:cleanText(p?.species,65),
+      active:p?.active===true,fainted:p?.fainted===true
+    })).filter(p=>p.species) : [];
     return {
-      battleFound: d.battleFound === true,
-      turn: Number.isInteger(d.turn) && d.turn >= 0 && d.turn <= 1000 ? d.turn : null,
-      pokemon: Array.isArray(d.pokemon) ? d.pokemon.slice(0,6).map(p=>({name:cleanText(p?.name,65),hp:cleanText(p?.hp,25)})) : [],
-      buttons: Array.isArray(d.buttons) ? d.buttons.slice(0,16)
+      battleFound:d.battleFound===true,
+      turn:Number.isInteger(d.turn)&&d.turn>=0&&d.turn<=1000?d.turn:null,
+      myActive:side(d.myActive),
+      opponentActive:side(d.opponentActive),
+      opponentRevealed:seen(d.opponentRevealed),
+      opponentUnknownSlots:Number.isInteger(d.opponentUnknownSlots)&&d.opponentUnknownSlots>=0&&d.opponentUnknownSlots<=6?d.opponentUnknownSlots:null,
+      buttons:Array.isArray(d.buttons)?d.buttons.slice(0,24)
         .filter(b=>['chooseMove','chooseSwitch'].includes(b?.action))
-        .map(b=>({name:cleanText(b.name,75),action:b.action})) : []
-      // Never include usernames, room URLs, battle logs, or Showdown chat.
+        .map(b=>({name:cleanText(b.name,75),action:b.action,disabled:b.disabled===true})) : []
+      // Never include usernames, room URLs, chat text, raw logs, or profile data.
     };
   }
   function sanitizeHistory(v) {

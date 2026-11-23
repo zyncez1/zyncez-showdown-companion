@@ -1,21 +1,40 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.4.0",
-  "description": "On-demand Pokémon Showdown AI messenger, with OpenRouter API key settings in the extension toolbar popup.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://openrouter.ai/*"],
+  "version": "0.6.0",
+  "description": "On-demand Pok\u00e9mon Showdown AI coach with opponent active/revealed team tracking and OpenRouter model picker.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://openrouter.ai/*"
+  ],
   "content_scripts": [
     {
       "matches": [
         "https://play.pokemonshowdown.com/*",
         "https://pokemonshowdown.com/*"
       ],
-      "js": ["src/types.js","src/reader.js","src/coach.js","src/content.js"],
+      "js": [
+        "src/types.js",
+        "src/battle-state.js",
+        "src/reader.js",
+        "src/coach.js",
+        "src/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-  "icons": {"16":"icons/icon16.png","48":"icons/icon48.png","128":"icons/icon128.png"},
-  "action": {"default_title":"Zyncez AI – OpenRouter Settings","default_popup":"popup.html"},
-  "background": {"service_worker":"src/background.js"}
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Zyncez AI \u2013 OpenRouter Settings",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  }
 }

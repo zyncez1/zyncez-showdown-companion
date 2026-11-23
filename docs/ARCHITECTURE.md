@@ -15,3 +15,8 @@
 - A direct-from-extension API key is recoverable by someone with access to the user's browser profile. Use a personal low-limit OpenRouter key and never commit it. A future hosted account-based setup would provide stronger protection.
 - Battle parsing is best-effort and requires live Showdown regression tests. No automatic move submission or background analysis.
 - Live coaching may be disallowed in competitive events; follow event rules.
+
+
+## v0.6 battle state
+
+On demand: `content.js` calls `reader.js` which scans `.statbar.rstatbar` (player), `.statbar.lstatbar` (opponent), `.rightbar .teamicons` (publicly visible opponent roster) and selected battle narrative events. Pure parsing and in-battle reveal retention live in `battle-state.js`. `ai-core.js` restricts the OpenRouter snapshot to these curated fields. Full log text, URLs, player account names and chat are excluded. The companion acts only after Send or local Refresh. Do not introduce automated requests or uncontrolled game actions.

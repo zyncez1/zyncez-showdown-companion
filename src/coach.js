@@ -22,7 +22,7 @@
       return m === null ? 'Specify a valid defending Pokémon type, for example: Fire vs Grass Steel.' : `${T.normalize(matchup[1])} against ${defending.join(' / ')}: ${m}× type effectiveness (modern chart, ignoring abilities, items, Terastallization, and other modifiers).`;
     }
     if (/weak|resist|immune|best move|what should i (?:do|use)|which move/i.test(lower)) {
-      if (!context.opponentTypes?.length) return 'I need the opponent’s current type(s) before I can compare matchups reliably. Type “set opponent type water flying” (replace with the real types), then ask again. I will not guess its type from its name in v0.1.';
+      if (!context.opponentTypes?.length) return `Opposing active Pokémon: ${state.opponentActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. ${state.opponentRevealed?.length?`Known opposing team: ${state.opponentRevealed.map(p=>p.species).join(', ')}. `:''}For reliable move ranking, switch to OpenRouter AI mode. Local mode has no full species/move database yet; you can also set the opposing types manually.`;
       const effective = T.types.map(attack => ({attack, value:T.multiplier(attack,context.opponentTypes)}));
       const weak = effective.filter(e=>e.value>1).map(e=>`${e.attack} ${e.value}×`);
       const resist = effective.filter(e=>e.value<1 && e.value>0).map(e=>`${e.attack} ${e.value}×`);
@@ -35,7 +35,7 @@
     }
     if (/status|battle|turn|what.*happen|update/i.test(lower)) {
       if (!state.battleFound) return 'No active battle field found in the visible Showdown room. Open a battle, then ask again.';
-      return `Battle detected${state.header?` (${state.header})`:''}. ${state.turn ? `Last visible turn: ${state.turn}.` : 'Turn number not found.'} ${state.pokemon.length ? `Visible Pokémon: ${state.pokemon.map(p=>p.name+(p.hp?` (${p.hp})`:'' )).join(', ')}.` : 'Active Pokémon not reliably detected.'} ${state.lines.length ? `Recent visible log: ${state.lines.slice(-4).join(' | ')}` : 'No readable log entries.'}`;
+      return `Battle detected. ${state.turn ? `Turn ${state.turn}. ` : ''}Your active: ${state.myActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. Opposing active: ${state.opponentActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. Previously revealed opposing Pokémon: ${state.opponentRevealed?.map(p=>p.species).join(', ')||'none confirmed'}. ${state.opponentUnknownSlots!=null?`Unrevealed slots: ${state.opponentUnknownSlots}.`:''}`;
     }
     if (!state.battleFound) return 'I am ready, but I cannot see a battle right now. Open Pokémon Showdown and join a battle. Type “help” to see available commands.';
     return 'I can read the current battle, but this prototype does not yet have a language-model connection. Ask “battle status”, “moves”, “weaknesses”, or “fire vs grass”. I won’t invent a strategy answer.';

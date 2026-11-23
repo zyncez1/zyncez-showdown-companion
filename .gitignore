@@ -4,3 +4,5 @@ node_modules/
 .env.*
 .DS_Store
 server/.pairing-token
+__pycache__/
+*.pyc
