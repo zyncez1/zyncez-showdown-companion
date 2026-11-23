@@ -5,7 +5,7 @@ importScripts('ai-core.js','model-catalog.js','game-capture.js');
 // chrome.storage.local normally allows content-script reads. Deny them before reading/writing secrets.
 const storageLocked=chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'})
   .catch(()=>{throw new Error('This browser cannot protect extension key storage. Please update Chrome or Opera.');});
-const SETTINGS=['zyncezApiKey','zyncezModel','zyncezMode','zyncezRecentModels'];
+const SETTINGS=['zyncezApiKey','zyncezModel','zyncezMode','zyncezRecentModels','zyncezPersonality','zyncezPersonalityNotes','zyncezReplyStyle'];
 function allowedSender(sender, type) {
   if (sender.id !== chrome.runtime.id) return false;
   // Extension popup can manage settings, but must never initiate AI requests.
@@ -22,7 +22,7 @@ async function handle(msg,sender) {
   await storageLocked;
   if (msg.type==='ZYNCEZ_GET_SETTINGS') {
     const s=await chrome.storage.local.get(SETTINGS);
-    return {ok:true,mode:s.zyncezMode==='local'?'local':'gpt',model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,hasKey:!!s.zyncezApiKey,recentModels:ZyncezModels.recentModels(s.zyncezModel||ZyncezAI.DEFAULT_MODEL,s.zyncezRecentModels)};
+    return {ok:true,mode:s.zyncezMode==='local'?'local':'gpt',model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,hasKey:!!s.zyncezApiKey,recentModels:ZyncezModels.recentModels(s.zyncezModel||ZyncezAI.DEFAULT_MODEL,s.zyncezRecentModels),...ZyncezAI.sanitizePreferences({personality:s.zyncezPersonality,personalityNotes:s.zyncezPersonalityNotes,replyStyle:s.zyncezReplyStyle})};
   }
   if (msg.type==='ZYNCEZ_SAVE_SETTINGS') {
     const mode=msg.mode==='local'?'local':'gpt';
@@ -30,11 +30,12 @@ async function handle(msg,sender) {
     if (!ZyncezAI.validModel(model)) throw new Error('Enter a valid OpenRouter model ID.');
     const newKey=typeof msg.key==='string'?msg.key.trim():'';
     if (newKey.length>512) throw new Error('API key is too long.');
-    const old=await chrome.storage.local.get(['zyncezModel','zyncezRecentModels']);
-    const settings={zyncezMode:mode,zyncezModel:model,zyncezRecentModels:ZyncezModels.recentModels(model,old.zyncezRecentModels)};
+    const old=await chrome.storage.local.get(['zyncezModel','zyncezRecentModels','zyncezPersonality','zyncezPersonalityNotes','zyncezReplyStyle']);
+    const preferences=ZyncezAI.sanitizePreferences({personality:msg.personality??old.zyncezPersonality,personalityNotes:msg.personalityNotes??old.zyncezPersonalityNotes,replyStyle:msg.replyStyle??old.zyncezReplyStyle});
+    const settings={zyncezMode:mode,zyncezModel:model,zyncezRecentModels:ZyncezModels.recentModels(model,old.zyncezRecentModels),zyncezPersonality:preferences.personality,zyncezPersonalityNotes:preferences.personalityNotes,zyncezReplyStyle:preferences.replyStyle};
     if (newKey) settings.zyncezApiKey=newKey;
     await chrome.storage.local.set(settings);
-    return {ok:true,mode,model,hasKey:newKey?true:!!(await chrome.storage.local.get('zyncezApiKey')).zyncezApiKey};
+    return {ok:true,mode,model,...preferences,hasKey:newKey?true:!!(await chrome.storage.local.get('zyncezApiKey')).zyncezApiKey};
   }
   if (msg.type==='ZYNCEZ_SET_MODEL') {
     const model=String(msg.model||'').trim();
@@ -71,7 +72,7 @@ async function handle(msg,sender) {
     const s=await chrome.storage.local.get(SETTINGS);
     if (s.zyncezMode==='local') throw new Error('AI mode is off. Enable it in ⚙ Settings.');
     if (!s.zyncezApiKey) throw new Error('Save your OpenRouter API key in ⚙ Settings first.');
-    const answer=await ZyncezAI.askOpenRouter({key:s.zyncezApiKey,model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,question:msg.question,state:msg.state,history:msg.history});
+    const answer=await ZyncezAI.askOpenRouter({key:s.zyncezApiKey,model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,question:msg.question,state:msg.state,history:msg.history,preferences:{personality:s.zyncezPersonality,personalityNotes:s.zyncezPersonalityNotes,replyStyle:s.zyncezReplyStyle}});
     return {ok:true,answer};
   }
   return {ok:false,error:'Unknown extension action.'};

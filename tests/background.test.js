@@ -118,3 +118,34 @@ test('on-demand main-world battle read is separate from and does not trigger Ope
   const rejected=await h.message({type:'ZYNCEZ_READ_GAME',roomId:'battle-test'},popup);
   assert.equal(rejected.ok,false);
 });
+
+
+test('personality and reply style persist without starting AI and flow into prompts',async()=>{
+  const h=await createHarness();
+  let result=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
+  assert.equal(result.personality,'friendly');
+  assert.equal(result.replyStyle,'natural');
+  result=await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'anthropic/claude-opus-5.5',key:'sample-key',personality:'custom',personalityNotes:'Talk like a chill teammate and explain switches.',replyStyle:'detailed'});
+  assert.equal(result.personality,'custom');
+  assert.equal(result.replyStyle,'detailed');
+  assert.equal(h.calls.includes('fetch'),false);
+  const saved=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
+  assert.equal(saved.personalityNotes,'Talk like a chill teammate and explain switches.');
+  assert.equal(saved.apiKey,undefined);
+  await h.message({type:'ZYNCEZ_ASK',question:'What should I do?',state:{battleFound:true},history:[]});
+  const prompt=h.requestBodies.at(-1).messages;
+  assert.match(prompt[1].content,/chill teammate/);
+  assert.match(prompt[1].content,/in-depth and comprehensive/);
+  assert.doesNotMatch(JSON.stringify(prompt),/sample-key/);
+  // Quick model changes keep personality intact.
+  await h.message({type:'ZYNCEZ_SET_MODEL',model:'openai/gpt-5-mini'});
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).personality,'custom');
+});
+
+test('invalid personality values fall back to safe defaults and notes are length-capped',async()=>{
+  const h=await createHarness();
+  const result=await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'openai/gpt-5-mini',personality:'unknown-persona',personalityNotes:'Z'.repeat(2000),replyStyle:'crazy'});
+  assert.equal(result.personality,'friendly');
+  assert.equal(result.replyStyle,'natural');
+  assert.equal(result.personalityNotes.length,1600);
+});

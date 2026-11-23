@@ -9,7 +9,9 @@ test('clicking the toolbar extension opens the OpenRouter settings popup',()=>{
   assert.equal(m.action.default_popup,'popup.html');
   const html=fs.readFileSync(path.join(root,'popup.html'),'utf8');
   assert.match(html,/<input[^>]+id="key"[^>]+type="password"/);
-  assert.match(html,/Save OpenRouter settings/);
+  assert.match(html,/Save settings & personality/);
+  assert.match(html,/id="personality-notes"/);
+  assert.match(html,/id="reply-style"/);
   assert.match(html,/src\/popup\.js/);
 });
 test('messenger re-reads settings after toolbar changes, without initiating AI in popup',()=>{

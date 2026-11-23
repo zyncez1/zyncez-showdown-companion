@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.8.0",
-  "description": "On-demand Pokémon Showdown AI coach with battle history, full party moves, and improved OpenRouter model response handling.",
+  "version": "0.9.0",
+  "description": "On-demand Pokémon Showdown AI coach with natural conversation, safe Markdown formatting, and custom personalities.",
   "permissions": [
     "scripting",
     "storage"
@@ -23,6 +23,7 @@
         "src/battle-state.js",
         "src/reader.js",
         "src/coach.js",
+        "src/message-format.js",
         "src/content.js"
       ],
       "run_at": "document_idle"

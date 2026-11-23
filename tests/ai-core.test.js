@@ -63,7 +63,7 @@ test('provider errors are reported and arbitrary text content array is parsed',a
 test('reasoning models get room for a visible answer with low reasoning effort',()=>{
   const {OUTPUT_TOKEN_BUDGET}=require('../src/ai-core.js');
   const req=buildPayload({model:'anthropic/claude-opus-5.5',question:'Best play?',state:{battleFound:true},history:[]});
-  assert.equal(OUTPUT_TOKEN_BUDGET,4096);
+  assert.equal(OUTPUT_TOKEN_BUDGET,8192);
   assert.equal(req.max_tokens,OUTPUT_TOKEN_BUDGET);
   assert.equal(req.reasoning.effort,'low');
   assert.equal(req.stream,false);
@@ -96,4 +96,23 @@ test('empty completed response and embedded provider error show actionable diagn
   const args={key:'secret',model:'anthropic/claude-opus-5.5',question:'Best move?',state:{},history:[]};
   await assert.rejects(()=>askOpenRouter({...args,fetchFn:async()=>({ok:true,json:async()=>({choices:[{message:{content:''},finish_reason:'stop'}]})})}),/finish reason: stop/);
   await assert.rejects(()=>askOpenRouter({...args,fetchFn:async()=>({ok:true,json:async()=>({error:{message:'Provider temporarily unavailable'}})})}),/Provider temporarily unavailable/);
+});
+
+
+test('natural personality is conversational while custom personality and depth are opt-in',()=>{
+  const p=buildPayload({model:'openai/gpt-5-mini',question:'What is my best play?',state:{battleFound:true},history:[]});
+  assert.match(p.messages[0].content,/Speak directly to the user like a real gaming friend/);
+  assert.match(p.messages[1].content,/Friendly gaming buddy|gamer-friend energy/);
+  assert.match(p.messages[1].content,/natural conversation/i);
+  const custom=buildPayload({model:'openai/gpt-5-mini',question:'Hi',state:{},history:[],preferences:{personality:'custom',personalityNotes:'Playful and sassy, but be accurate.',replyStyle:'detailed'}});
+  assert.match(custom.messages[1].content,/Playful and sassy/);
+  assert.match(custom.messages[1].content,/in-depth and comprehensive/);
+  assert.doesNotMatch(custom.messages[0].content,/Only provide a summary/);
+});
+
+test('does not silently truncate longer model replies or hide Markdown markers from renderer',async()=>{
+  const full='# My thinking\n\n'+'**Use Protect** and then consider a switch.\n'.repeat(600);
+  const answer=await askOpenRouter({key:'test-key',model:'openai/gpt-5-mini',question:'Explain the whole thing',state:{},history:[],fetchFn:async()=>({ok:true,json:async()=>({choices:[{message:{content:full}}]})})});
+  assert.equal(answer.length,full.trim().length);
+  assert.equal(answer,full.trim());
 });

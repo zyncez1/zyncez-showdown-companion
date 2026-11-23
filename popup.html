@@ -33,7 +33,23 @@
       <input id="model" type="text" value="openai/gpt-5-mini" autocomplete="off" spellcheck="false" maxlength="150">
       <label for="mode">Chat mode</label>
       <select id="mode"><option value="gpt">OpenRouter AI (when I press Send)</option><option value="local">Local commands only (free)</option></select>
-      <button class="primary" id="save" type="submit">Save OpenRouter settings</button>
+      <fieldset class="personality-settings">
+        <legend>Companion personality</legend>
+        <label for="personality">How should your AI talk to you?</label>
+        <select id="personality">
+          <option value="friendly">Friendly gaming buddy</option>
+          <option value="coach">Competitive Pokémon coach</option>
+          <option value="hype">Excited / playful teammate</option>
+          <option value="calm">Calm and relaxed</option>
+          <option value="custom">Custom personality</option>
+        </select>
+        <label for="personality-notes">Your own personality instructions (optional)</label>
+        <textarea id="personality-notes" maxlength="1600" rows="4" placeholder="Example: Talk like a close gaming friend. Joke around, call out my mistakes kindly, and explain WHY a move is good. Don't give me generic numbered reports."></textarea>
+        <p class="help">Your preferences apply to replies when you press Send. They don't change battle facts or make the AI act automatically.</p>
+        <label for="reply-style">Response depth</label>
+        <select id="reply-style"><option value="natural">Natural conversation (recommended)</option><option value="detailed">More detailed explanations</option></select>
+      </fieldset>
+      <button class="primary" id="save" type="submit">Save settings & personality</button>
       <button class="secondary" type="button" id="remove">Remove saved API key</button>
       <div id="notice" class="notice" aria-live="polite" role="status"></div>
     </form>
