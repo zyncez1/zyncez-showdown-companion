@@ -37,20 +37,12 @@ You only need to paste the key once per browser profile/extension installation. 
 
 ## Local development and saved Git progress
 
+The **official project source is on GitHub** at [zyncez1/zyncez-showdown-companion](https://github.com/zyncez1/zyncez-showdown-companion). Clone it to continue development with Git:
+
 ```bash
+git clone https://github.com/zyncez1/zyncez-showdown-companion.git
+cd zyncez-showdown-companion
 node --test tests/*.test.js
-node --check src/content.js
-node --check src/background.js
-node --check src/ai-core.js
 ```
 
-The complete ZIP contains local Git history, including v0.1, v0.2, v0.3, and v0.4. The new remote repository is `zyncez1/zyncez-showdown-companion`. To connect it manually from the local project folder:
-
-```bash
-git remote add origin https://github.com/zyncez1/zyncez-showdown-companion.git
-git branch -M main
-git push -u origin main
-# If GitHub already contains a different root commit, fetch and reconcile first rather than force-pushing
-```
-
-Do not commit API keys to Git. All API credentials belong in the extension's Settings UI, not source code.
+The installable ZIP is an extension distribution, **not a Git clone**. The GitHub repository holds the current source; use `git clone` for future development. Avoid saving API keys in the repository, source code, screenshots, or chat messages.
