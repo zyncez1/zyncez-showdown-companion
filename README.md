@@ -1,4 +1,4 @@
-# Zyncez AI Battle Companion (v0.7)
+# Zyncez AI Battle Companion (v0.8)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -85,3 +85,15 @@ git push -u origin main
 ```
 
 Do not commit API keys to Git. All API credentials belong in the extension's Settings UI, not source code.
+
+## v0.8 — Reasoning model response fix
+
+- Fixed an overly restrictive `max_tokens: 1200` limit that could be exhausted by reasoning models (such as Claude Opus) before producing visible text. The request now provides a 4096-token **maximum** with low reasoning effort and asks for a concise user-visible answer. Higher capacity is not a guarantee of a reply and may increase the maximum potential bill for a request.
+- Handles ordinary string answers, text content-part arrays, and common completion text wrappers while explicitly avoiding hidden reasoning output.
+- If OpenRouter still returns empty content, the messenger reports the selected model, completion finish reason, and any output-token count available instead of incorrectly suggesting the model ID is invalid. Responses that end at the token limit display specific guidance.
+- There are no automatic retries or extra provider calls. AI requests still happen only when **Send** is pressed; each request can incur charges.
+- This version is tested with simulated OpenRouter responses and extension code checks. A real response using your personal key cannot be tested from this environment.
+
+### Updating safely
+
+Replace the extension files **in the exact same unpacked extension folder** to preserve its browser extension ID and stored key, then open `opera://extensions` and press **Reload**. Refresh Pokémon Showdown afterward. You do not need to share or re-enter your OpenRouter key if your original extension storage is retained.

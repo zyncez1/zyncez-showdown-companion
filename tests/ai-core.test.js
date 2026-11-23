@@ -59,3 +59,41 @@ test('provider errors are reported and arbitrary text content array is parsed',a
   await assert.rejects(()=>askOpenRouter({key:'secret',model:'openai/gpt-5-mini',question:'Hi',fetchFn}),/Invalid API key/);
   assert.equal(extractReply({choices:[{message:{content:[{type:'text',text:'Hi'},{type:'text',text:'there'}]}}]}),'Hi\nthere');
 });
+
+test('reasoning models get room for a visible answer with low reasoning effort',()=>{
+  const {OUTPUT_TOKEN_BUDGET}=require('../src/ai-core.js');
+  const req=buildPayload({model:'anthropic/claude-opus-5.5',question:'Best play?',state:{battleFound:true},history:[]});
+  assert.equal(OUTPUT_TOKEN_BUDGET,4096);
+  assert.equal(req.max_tokens,OUTPUT_TOKEN_BUDGET);
+  assert.equal(req.reasoning.effort,'low');
+  assert.equal(req.stream,false);
+});
+
+test('reads visible text across OpenRouter response variants but excludes reasoning',()=>{
+  assert.equal(extractReply({choices:[{message:{content:[{type:'reasoning',text:'private thought'},{type:'output_text',text:'Use Protect.'}]}}]}),'Use Protect.');
+  assert.equal(extractReply({choices:[{message:{content:[{type:'text',text:{value:'Safe switch.'}}]}}]}),'Safe switch.');
+  assert.equal(extractReply({choices:[{text:'Try a switch.'}]}),'Try a switch.');
+  assert.equal(extractReply({output_text:'Use the special move.'}),'Use the special move.');
+  assert.equal(extractReply({output:[{type:'reasoning',summary:'secret'},{type:'message',role:'assistant',content:[{type:'output_text',text:'Go with Hydro Pump.'}]}]}),'Go with Hydro Pump.');
+  assert.equal(extractReply({choices:[{message:{reasoning:'private thought',content:null},finish_reason:'length'}]}),'');
+});
+
+test('empty response shows output-limit cause instead of blaming the model ID, without auto-retrying',async()=>{
+  let count=0;
+  const fetchFn=async()=>{count++;return {ok:true,json:async()=>({choices:[{message:{content:null,reasoning:'hidden'},finish_reason:'length'}],usage:{completion_tokens:1200}})};};
+  await assert.rejects(()=>askOpenRouter({key:'secret',model:'anthropic/claude-opus-5.5',question:'Best move?',state:{},history:[],fetchFn}),e=>{
+    assert.match(e.message,/claude-opus-5\.5/);
+    assert.match(e.message,/output budget/i);
+    assert.match(e.message,/1200 output tokens/);
+    assert.doesNotMatch(e.message,/try another model ID/i);
+    assert.doesNotMatch(e.message,/hidden/);
+    return true;
+  });
+  assert.equal(count,1);
+});
+
+test('empty completed response and embedded provider error show actionable diagnostics',async()=>{
+  const args={key:'secret',model:'anthropic/claude-opus-5.5',question:'Best move?',state:{},history:[]};
+  await assert.rejects(()=>askOpenRouter({...args,fetchFn:async()=>({ok:true,json:async()=>({choices:[{message:{content:''},finish_reason:'stop'}]})})}),/finish reason: stop/);
+  await assert.rejects(()=>askOpenRouter({...args,fetchFn:async()=>({ok:true,json:async()=>({error:{message:'Provider temporarily unavailable'}})})}),/Provider temporarily unavailable/);
+});
