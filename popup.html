@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zyncez AI – OpenRouter Settings</title>
+  <link rel="stylesheet" href="src/popup.css">
+</head>
+<body>
+  <header class="top">
+    <img src="icons/icon48.png" alt="" width="36" height="36">
+    <div><h1>Zyncez AI Companion</h1><p>OpenRouter connection</p></div>
+    <span class="pill" id="connection">Loading</span>
+  </header>
+  <main>
+    <form id="settings-form">
+      <label for="key">OpenRouter API key</label>
+      <div class="key-row">
+        <input id="key" type="password" placeholder="Paste sk-or-v1-… key" autocomplete="off" spellcheck="false" maxlength="512">
+        <button type="button" id="show-key" aria-label="Show or hide API key" title="Show/hide key">Show</button>
+      </div>
+      <p class="help" id="key-help">Enter your key once. A saved key is never displayed again.</p>
+      <label for="model">AI model ID</label>
+      <input id="model" type="text" value="openai/gpt-5-mini" autocomplete="off" spellcheck="false" maxlength="150">
+      <label for="mode">Chat mode</label>
+      <select id="mode"><option value="gpt">OpenRouter AI (when I press Send)</option><option value="local">Local commands only (free)</option></select>
+      <button class="primary" id="save" type="submit">Save OpenRouter settings</button>
+      <button class="secondary" type="button" id="remove">Remove saved API key</button>
+      <div id="notice" class="notice" aria-live="polite" role="status"></div>
+    </form>
+    <a class="showdown" href="https://play.pokemonshowdown.com/" target="_blank" rel="noopener noreferrer">Open Pokémon Showdown ↗</a>
+    <p class="fine">Only sends a request when you press Send in the Showdown messenger. The key is stored in this browser profile; anyone with access to the profile may be able to recover it. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Get a key ↗</a></p>
+  </main>
+  <script src="src/popup.js"></script>
+</body>
+</html>
