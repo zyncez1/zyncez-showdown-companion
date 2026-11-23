@@ -21,6 +21,7 @@ test('messenger re-reads settings after toolbar changes, without initiating AI i
   assert.doesNotMatch(popup,/ZYNCEZ_ASK/);
 });
 
+
 test('length picker is visible in messenger and available in both settings screens',()=>{
   const html=fs.readFileSync(path.join(root,'popup.html'),'utf8');
   const content=fs.readFileSync(path.join(root,'src/content.js'),'utf8');
