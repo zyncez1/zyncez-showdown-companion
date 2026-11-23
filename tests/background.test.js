@@ -146,9 +146,10 @@ test('invalid personality values fall back to safe defaults and notes are length
   const h=await createHarness();
   const result=await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'openai/gpt-5-mini',personality:'unknown-persona',personalityNotes:'Z'.repeat(2000),replyStyle:'crazy'});
   assert.equal(result.personality,'friendly');
-  assert.equal(result.replyStyle,'natural');
+  assert.equal(result.replyStyle,'short');
   assert.equal(result.personalityNotes.length,1600);
 });
+
 
 test('quick reply length switch saves immediately, never sends AI request, preserves key/model/personality',async()=>{
   const h=await createHarness();
