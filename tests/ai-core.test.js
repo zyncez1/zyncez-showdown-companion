@@ -117,6 +117,7 @@ test('does not silently truncate longer model replies or hide Markdown markers f
   assert.equal(answer,full.trim());
 });
 
+
 test('three reply modes are separate from personality and make distinct prompt choices',()=>{
   const {sanitizePreferences,REPLY_STYLES}=require('../src/ai-core.js');
   assert.deepEqual(Object.keys(REPLY_STYLES),['short','medium','long']);
