@@ -20,3 +20,8 @@
 ## v0.6 battle state
 
 On demand: `content.js` calls `reader.js` which scans `.statbar.rstatbar` (player), `.statbar.lstatbar` (opponent), `.rightbar .teamicons` (publicly visible opponent roster) and selected battle narrative events. Pure parsing and in-battle reveal retention live in `battle-state.js`. `ai-core.js` restricts the OpenRouter snapshot to these curated fields. Full log text, URLs, player account names and chat are excluded. The companion acts only after Send or local Refresh. Do not introduce automated requests or uncontrolled game actions.
+
+
+## v0.7 on-demand client state
+
+On explicit **Send** or **Refresh**, `src/content.js` calls `ZyncezReader.read()` and requests `ZYNCEZ_READ_GAME` from the trusted extension service worker. The worker uses MV3 `chrome.scripting.executeScript` in the Showdown page MAIN world with the self-contained function in `src/game-capture.js`. This one-off read extracts `room.request.side.pokemon` (own full party and moves), `room.request.active` (active move PP/disabled flags), and filtered public actions from `room.battle.stepQueue`. `src/battle-state.js` merges them with the DOM, separates player versus opponent actions, and constructs a sanitized event history. `src/ai-core.js` explicitly whitelists only game fields into the model payload, excluding original protocol lines, player chat and account information. If no accessible game room is available, the UI degrades to DOM-only information and should clearly report missing bench data.

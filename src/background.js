@@ -1,6 +1,6 @@
 /* Keys remain in trusted extension storage, and API requests happen only on Send. */
 'use strict';
-importScripts('ai-core.js','model-catalog.js');
+importScripts('ai-core.js','model-catalog.js','game-capture.js');
 
 // chrome.storage.local normally allows content-script reads. Deny them before reading/writing secrets.
 const storageLocked=chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'})
@@ -18,7 +18,7 @@ function allowedSender(sender, type) {
     return url.protocol==='https:' && ['play.pokemonshowdown.com','pokemonshowdown.com'].includes(url.hostname);
   } catch { return false; }
 }
-async function handle(msg) {
+async function handle(msg,sender) {
   await storageLocked;
   if (msg.type==='ZYNCEZ_GET_SETTINGS') {
     const s=await chrome.storage.local.get(SETTINGS);
@@ -59,6 +59,14 @@ async function handle(msg) {
     await chrome.storage.local.remove('zyncezApiKey');
     return {ok:true,hasKey:false};
   }
+  if (msg.type==='ZYNCEZ_READ_GAME') {
+    if (!sender.tab?.id || !chrome.scripting?.executeScript) throw new Error('On-demand game reading is unavailable in this browser.');
+    const results=await chrome.scripting.executeScript({
+      target:{tabId:sender.tab.id,frameIds:[0]},world:'MAIN',
+      func:ZyncezCapture.capture,args:[typeof msg.roomId==='string'?msg.roomId.slice(0,160):'']
+    });
+    return {ok:true,game:results?.[0]?.result||{available:false,reason:'No battle data returned.'}};
+  }
   if (msg.type==='ZYNCEZ_ASK') {
     const s=await chrome.storage.local.get(SETTINGS);
     if (s.zyncezMode==='local') throw new Error('AI mode is off. Enable it in ⚙ Settings.');
@@ -69,8 +77,8 @@ async function handle(msg) {
   return {ok:false,error:'Unknown extension action.'};
 }
 chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
-  if (!msg || !['ZYNCEZ_GET_SETTINGS','ZYNCEZ_SAVE_SETTINGS','ZYNCEZ_SET_MODEL','ZYNCEZ_LIST_MODELS','ZYNCEZ_REMOVE_KEY','ZYNCEZ_ASK'].includes(msg.type)) return false;
+  if (!msg || !['ZYNCEZ_GET_SETTINGS','ZYNCEZ_SAVE_SETTINGS','ZYNCEZ_SET_MODEL','ZYNCEZ_LIST_MODELS','ZYNCEZ_REMOVE_KEY','ZYNCEZ_READ_GAME','ZYNCEZ_ASK'].includes(msg.type)) return false;
   if (!allowedSender(sender,msg.type)) {respond({ok:false,error:'Only the Zyncez extension and Pokémon Showdown messenger can send requests.'});return false;}
-  Promise.resolve().then(()=>handle(msg)).then(respond,error=>respond({ok:false,error:error?.message||'Extension request failed.'}));
+  Promise.resolve().then(()=>handle(msg,sender)).then(respond,error=>respond({ok:false,error:error?.message||'Extension request failed.'}));
   return true;
 });

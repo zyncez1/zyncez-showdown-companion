@@ -59,7 +59,105 @@
     for (const p of result) p.active=activeNames.has(p.name.toLowerCase());
     return result.slice(0,24);
   }
-  const api={parseIcon,parseHistory,mergeKnown};
+  // Parse Showdown's public, protocol-structured battle events. Chat messages
+  // are excluded before arriving here. Never forward raw protocol to an AI.
+  function parseProtocol(protocol,opponentSideId) {
+    const events=[];
+    const sideId=/^p[1-4]$/.test(opponentSideId||'')?opponentSideId:'';
+    let turn=null;
+    const actor=(identifier)=>{
+      const match=clean(identifier,95).match(/^(p[1-4])[a-c]?:\s*(.+)$/i);
+      return match?{side:match[1]===sideId?'opponent':'mine',name:clean(match[2],65)}:{side:'unknown',name:''};
+    };
+    const allowed=new Set(['turn','move','switch','drag','replace','faint','cant','-status','-curestatus','-damage','-heal','-ability','-item','-enditem','-terastallize','-weather','-fieldstart','-fieldend','-sidestart','-sideend','-boost','-unboost','detailschange','-formechange']);
+    for(const raw of Array.isArray(protocol)?protocol.slice(-300):[]) {
+      if(typeof raw!=='string'||raw.length>450||!raw.startsWith('|')) continue;
+      const fields=raw.split('|');
+      const type=fields[1];if(!allowed.has(type))continue;
+      if(type==='turn') {const t=Number(fields[2]);if(Number.isInteger(t)&&t>=0&&t<=1000)turn=t;continue;}
+      let row={type,turn};
+      if(type==='-weather'||type==='-fieldstart'||type==='-fieldend') {
+        row.detail=clean(fields[2],65);
+      } else {
+        const who=actor(fields[2]);
+        if(!who.name && type!=='-sidestart' && type!=='-sideend') continue;
+        row.side=who.side;
+        row.pokemon=who.name;
+        if(type==='move') {
+          row.move=clean(fields[3],65);
+          row.target=actor(fields[4]).name;
+          if(!row.move) continue;
+        } else if(['switch','drag','replace','detailschange','-formechange'].includes(type)) {
+          row.detail=clean((fields[3]||'').split(',')[0],65);
+        } else if(['-status','-curestatus','-ability','-item','-enditem','-terastallize','cant','-sidestart','-sideend','-boost','-unboost'].includes(type)) {
+          row.detail=clean(fields[type==='cant'?4:3],65);
+        } else if(type==='-damage'||type==='-heal') {
+          row.detail=clean(fields[3],35);
+        }
+      }
+      events.push(row);
+    }
+    return events.slice(-65);
+  }
+  function enrichState(state,game) {
+    const result={...state};
+    result.myParty=[];
+    result.battleEvents=[];
+    result.opponentMovesSeen=[];
+    result.gameReadStatus='unavailable';
+    if(!game?.available) {
+      result.gameReadStatus=clean(game?.reason||'Game client data not available',120);
+      // Show the own team disclosed in the sidebar even if client room data cannot be accessed.
+      return result;
+    }
+    result.gameReadStatus='connected';
+    const activeNames=new Set((result.myActive||[]).map(p=>p.name?.toLowerCase()).filter(Boolean));
+    result.myParty=(Array.isArray(game.myParty)?game.myParty:[]).slice(0,12).map(p=>({
+      slot:Number.isInteger(p?.slot)?p.slot:null,name:clean(p?.name,65),species:clean(p?.species,65),
+      hp:clean(p?.hp,25),status:clean(p?.status,15),active:!!p?.active||activeNames.has(String(p?.name||'').toLowerCase()),
+      fainted:!!p?.fainted,moves:Array.isArray(p?.moves)?p.moves.slice(0,6).map(m=>clean(m,65)).filter(Boolean):[],
+      ability:clean(p?.ability,65),item:clean(p?.item,65),teraType:clean(p?.teraType,25)
+    })).filter(p=>p.species);
+    // Match move-request slots by active field order, not by the original party
+    // index: the active Pokemon may have switched positions in a Doubles battle.
+    const activeMoves=Array.isArray(game.activeMoves)?game.activeMoves:[];
+    const activeField=Array.isArray(game.myActive)?game.myActive:[];
+    for(const [index,fieldMon] of activeField.entries()) {
+      const name=String(fieldMon?.name||'').toLowerCase();
+      const species=String(fieldMon?.species||'').toLowerCase();
+      const partyMon=result.myParty.find(p=>p.active && (p.name.toLowerCase()===name || p.species.toLowerCase()===species));
+      const requested=activeMoves[index]?.moves;
+      if(!partyMon||!Array.isArray(requested)||!requested.length)continue;
+      partyMon.currentMoves=requested.slice(0,6).map(m=>({name:clean(m?.name,65),pp:Number.isInteger(m?.pp)?m.pp:null,
+        maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:clean(m?.target,35)}));
+    }
+    if(!(result.myActive||[]).length && Array.isArray(game.myActive)) result.myActive=game.myActive.slice(0,3);
+    if(!(result.opponentActive||[]).length && Array.isArray(game.opponentActive)) result.opponentActive=game.opponentActive.slice(0,3);
+    const prior=result.opponentRevealed||[];
+    const fromClient=Array.isArray(game.opponentKnown)?game.opponentKnown.map(p=>({...p,source:'client'})):[];
+    const turn=result.turn;
+    result.opponentRevealed=mergeKnown(prior,fromClient,[],result.opponentActive||[],turn);
+    result.battleEvents=parseProtocol(game.protocol,game.opponentSideId);
+    const moveMap=new Map();
+    for(const ev of result.battleEvents){
+      if(ev.type!=='move'||ev.side!=='opponent'||!ev.move)continue;
+      const k=ev.pokemon.toLowerCase();
+      if(!moveMap.has(k)) moveMap.set(k,{name:ev.pokemon,moves:[]});
+      const bucket=moveMap.get(k);
+      if(!bucket.moves.includes(ev.move))bucket.moves.push(ev.move);
+    }
+    result.opponentMovesSeen=[...moveMap.values()].slice(0,12).map(p=>({...p,moves:p.moves.slice(0,6)}));
+    for(const foe of result.opponentRevealed) {
+      const match=moveMap.get(foe.name.toLowerCase())||moveMap.get(foe.species.toLowerCase());
+      if(match)foe.movesSeen=match.moves.slice(0,6);
+    }
+    if(result.turn===null || result.turn===undefined) {
+      const seenTurns=result.battleEvents.map(e=>e.turn).filter(Number.isInteger);
+      if(seenTurns.length)result.turn=seenTurns.at(-1);
+    }
+    return result;
+  }
+  const api={parseIcon,parseHistory,mergeKnown,parseProtocol,enrichState};
   if (typeof module!=='undefined' && module.exports) module.exports=api;
   if (root) root.ZyncezBattleState=api;
 })(typeof window!=='undefined'?window:globalThis);

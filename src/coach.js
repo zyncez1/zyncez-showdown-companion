@@ -5,6 +5,17 @@
   function analyze(question, state, context) {
     const q = String(question || '').trim();
     const lower = q.toLowerCase();
+    if (/^(?:show |list )?(?:my )?(?:team|party|bench|party moves|team moves|benched moves)(?:\?)?$/i.test(q)) {
+      if (!state.myParty?.length) return 'I cannot read your complete party from the current Showdown request. Open your battle and press ↻, then try again.';
+      return 'Your party (moves available to the companion, including the bench):\n' + state.myParty.map(p=>
+        `${p.active?'[ACTIVE] ':'[BENCH] '}${p.species}${p.fainted?' (fainted)':''}: ${p.moves?.length?p.moves.join(', '):'moves not exposed'}`
+      ).join('\n');
+    }
+    if (/^(?:show |list )?(?:battle )?(?:history|moves used|recent moves)(?:\?)?$/i.test(q)) {
+      if (!state.battleEvents?.length)return 'No structured battle events are available in this room yet.';
+      return state.battleEvents.filter(e=>['move','switch','drag','faint','-status','-ability','-terastallize'].includes(e.type)).slice(-12)
+        .map(e=>`Turn ${e.turn??'?'}: ${e.side||'field'} ${e.pokemon||''} ${e.type==='move'?'used '+e.move:e.type} ${e.detail||''}`.trim()).join('\n');
+    }
     if (!q) return 'Ask me a question to start.';
     if (/^(help|\/help|what can you do)\??$/i.test(q))
       return 'Try: “battle status”, “what moves can I click?”, “fire vs grass/steel”, “set opponent type water flying”, “weaknesses”, or “best move”. I only inspect the battle when you send a message or tap Refresh. Full LLM reasoning is planned for a later version.';
@@ -33,9 +44,9 @@
     if (/move|switch|button|option/i.test(lower)) {
       return state.buttons.length ? `Visible battle choices: ${state.buttons.map(b=>b.name).join('; ')}. These are read-only; I will never click them.` : 'I cannot see any move or switch buttons in the currently selected battle view.';
     }
-    if (/status|battle|turn|what.*happen|update/i.test(lower)) {
+    if (/status|battle|turn|what.*happen|update|party|team/i.test(lower)) {
       if (!state.battleFound) return 'No active battle field found in the visible Showdown room. Open a battle, then ask again.';
-      return `Battle detected. ${state.turn ? `Turn ${state.turn}. ` : ''}Your active: ${state.myActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. Opposing active: ${state.opponentActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. Previously revealed opposing Pokémon: ${state.opponentRevealed?.map(p=>p.species).join(', ')||'none confirmed'}. ${state.opponentUnknownSlots!=null?`Unrevealed slots: ${state.opponentUnknownSlots}.`:''}`;
+      return `Battle detected. ${state.turn ? `Turn ${state.turn}. ` : ''}Your active: ${state.myActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. Opposing active: ${state.opponentActive?.map(p=>p.species||p.name).join(', ')||'not detected'}. Revealed opponents: ${state.opponentRevealed?.map(p=>p.species).join(', ')||'none confirmed'}. Party: ${state.myParty?.map(p=>p.species).join(', ')||'not available'}. Opponent moves observed: ${state.opponentMovesSeen?.map(p=>`${p.name}: ${p.moves.join(', ')}`).join('; ')||'none yet'}. Say “party” or “history” to inspect details.`;
     }
     if (!state.battleFound) return 'I am ready, but I cannot see a battle right now. Open Pokémon Showdown and join a battle. Type “help” to see available commands.';
     return 'I can read the current battle, but this prototype does not yet have a language-model connection. Ask “battle status”, “moves”, “weaknesses”, or “fire vs grass”. I won’t invent a strategy answer.';

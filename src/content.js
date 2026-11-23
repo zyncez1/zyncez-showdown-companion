@@ -63,11 +63,21 @@
   const browseButton=panel.querySelector('[data-browse-models]'),modelSearch=panel.querySelector('[data-model-search]');
   const freeOnly=panel.querySelector('[data-free-only]'),modelResults=panel.querySelector('[data-model-results]'),modelCount=panel.querySelector('[data-model-count]');
   const battleInfo=panel.querySelector('[data-battle-info]');
+  async function readCurrentState() {
+    const base=window.ZyncezReader.read();
+    try {
+      const r=await request({type:'ZYNCEZ_READ_GAME',roomId:base.roomId||''});
+      if(r?.ok) return window.ZyncezBattleState.enrichState(base,r.game);
+    } catch { /* The DOM reader remains a fallback if game data is inaccessible. */ }
+    return window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});
+  }
   function showBattleInfo(state) {
-    if(!state.battleFound){battleInfo.textContent='No battle detected in the current Showdown room.';return;}
+    if(!state.battleFound && state.gameReadStatus!=='connected'){battleInfo.textContent='No battle detected in the current Showdown room.';return;}
     const active=state.opponentActive.map(p=>p.species||p.name).join(' + ') || 'not detected';
     const seen=state.opponentRevealed.map(p=>p.species).join(', ') || 'none yet';
-    battleInfo.textContent=`Opponent active: ${active} | Revealed: ${seen}${state.opponentUnknownSlots ? ` | Hidden slots: ${state.opponentUnknownSlots}` : ''}`;
+    const team=state.myParty?.length ? ` | Your party: ${state.myParty.map(p=>p.species+(p.moves?.length?` (${p.moves.length} moves)`:' (moves unknown)')).join(', ')}` : ' | Party moves unavailable';
+    const recorded=state.opponentMovesSeen?.reduce((n,p)=>n+p.moves.length,0)||0;
+    battleInfo.textContent=`Opponent active: ${active} | Revealed: ${seen}${state.opponentUnknownSlots ? ` | Hidden slots: ${state.opponentUnknownSlots}` : ''}${team} | Opponent moves seen: ${recorded}`;
   }
   const context={opponentTypes:[]};
   let mode='gpt',hasKey=false,busy=false,history=[],catalog=null,recentIds=[];
@@ -144,13 +154,13 @@
     catch(error){saved.textContent=error.message;}
   });
   panel.querySelector('[data-clear]').addEventListener('click',()=>{messages.replaceChildren();context.opponentTypes=[];history=[];add('bot','Chat cleared. I will wait for your next question.');});
-  panel.querySelector('[data-refresh]').addEventListener('click',()=>{const state=window.ZyncezReader.read();showBattleInfo(state);add('bot',window.ZyncezCoach.analyze('battle status',state,context));});
+  panel.querySelector('[data-refresh]').addEventListener('click',async()=>{const state=await readCurrentState();showBattleInfo(state);add('bot',window.ZyncezCoach.analyze('battle status',state,context));});
   panel.querySelector('form').addEventListener('submit',async e=>{
     e.preventDefault();const q=input.value.trim();if(!q||busy)return;
     input.value='';add('user',q);
     // Settings may have changed in the extension toolbar popup since the last message.
     await loadSettings();
-    const state=window.ZyncezReader.read();
+    const state=await readCurrentState();
     showBattleInfo(state);
     if(mode==='local'){add('bot',window.ZyncezCoach.analyze(q,state,context));return;}
     if(!hasKey){add('bot','Click the Zyncez extension icon in your browser toolbar (or ⚙ here), paste your OpenRouter API key, then click Save settings.');return;}

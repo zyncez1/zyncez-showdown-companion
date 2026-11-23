@@ -7,7 +7,11 @@ const path=require('node:path');
 
 async function createHarness(){
   const data={};const calls=[];const keys=[];const requestBodies=[];let listener;
-  const chrome={runtime:{id:'a'.repeat(32),getURL:(p)=>'chrome-extension://'+'a'.repeat(32)+'/'+p,onMessage:{addListener:fn=>listener=fn}},storage:{local:{
+  const chrome={scripting:{async executeScript({target,world,func,args}) {
+    calls.push('game-scan');assert.equal(world,'MAIN');assert.equal(target.tabId,17);
+    assert.equal(typeof func,'function');assert.equal(args[0],'battle-test');
+    return [{result:{available:true,roomId:'battle-test',myParty:[{name:'Rotom-Wash',moves:['hydropump']}],protocol:[]}}];
+  }},runtime:{id:'a'.repeat(32),getURL:(p)=>'chrome-extension://'+'a'.repeat(32)+'/'+p,onMessage:{addListener:fn=>listener=fn}},storage:{local:{
     async setAccessLevel(v){calls.push('lock');assert.equal(v.accessLevel,'TRUSTED_CONTEXTS');},
     async get(names){calls.push('read');const result={};for(const k of Array.isArray(names)?names:[names])result[k]=data[k];return result;},
     async set(values){calls.push('save');Object.assign(data,values);},
@@ -22,7 +26,7 @@ async function createHarness(){
   context.globalThis=context;context.self=context;
   context.importScripts=(...paths)=>{for(const p of paths) vm.runInContext(fs.readFileSync(path.join(__dirname,'..','src',p),'utf8'),context);};
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','src','background.js'),'utf8'),context);
-  const sender={id:chrome.runtime.id,frameId:0,tab:{url:'https://play.pokemonshowdown.com/'}};
+  const sender={id:chrome.runtime.id,frameId:0,tab:{id:17,url:'https://play.pokemonshowdown.com/'}};
   const message=(msg,s=sender)=>new Promise(resolve=>listener(msg,s,resolve));
   await new Promise(resolve=>setImmediate(resolve));
   return {message,calls,keys,data,requestBodies};
@@ -99,4 +103,18 @@ test('browsing model catalog is opt-in; changing model never sends an AI query',
   assert.equal(reply.ok,true);
   assert.equal(h.requestBodies.at(-1).model,'qwen/qwen3:free');
   assert.equal(h.calls.filter(x=>x==='fetch').length,2);
+});
+
+
+test('on-demand main-world battle read is separate from and does not trigger OpenRouter',async()=>{
+  const h=await createHarness();
+  assert.equal(h.calls.includes('game-scan'),false);
+  const result=await h.message({type:'ZYNCEZ_READ_GAME',roomId:'battle-test'});
+  assert.equal(result.ok,true);
+  assert.equal(result.game.myParty[0].moves[0],'hydropump');
+  assert.equal(h.calls.includes('game-scan'),true);
+  assert.equal(h.calls.includes('fetch'),false);
+  const popup={id:'a'.repeat(32),url:'chrome-extension://'+'a'.repeat(32)+'/popup.html'};
+  const rejected=await h.message({type:'ZYNCEZ_READ_GAME',roomId:'battle-test'},popup);
+  assert.equal(rejected.ok,false);
 });

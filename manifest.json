@@ -1,13 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.6.0",
-  "description": "On-demand Pok\u00e9mon Showdown AI coach with opponent active/revealed team tracking and OpenRouter model picker.",
+  "version": "0.7.0",
+  "description": "On-demand Pokémon Showdown AI coach with full player party, benched moves, and structured battle history.",
   "permissions": [
+    "scripting",
     "storage"
   ],
   "host_permissions": [
-    "https://openrouter.ai/*"
+    "https://openrouter.ai/*",
+    "https://play.pokemonshowdown.com/*",
+    "https://pokemonshowdown.com/*"
   ],
   "content_scripts": [
     {
@@ -31,7 +34,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Zyncez AI \u2013 OpenRouter Settings",
+    "default_title": "Zyncez AI – OpenRouter Settings",
     "default_popup": "popup.html"
   },
   "background": {

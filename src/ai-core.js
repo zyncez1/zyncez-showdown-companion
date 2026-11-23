@@ -8,9 +8,12 @@
     'Reply only when the user asks. Never initiate actions or control any Pokémon Showdown interface.',
     'The battle snapshot is captured only when the user pressed Send; it is read-only and may be incomplete.',
     'myActive is the player side; opponentActive is the opposing side; opponentRevealed includes Pokémon seen earlier even after they switch out.',
-    'When asked for a best move, use opponentActive and the available moves first. Offer practical options with a short explanation and clearly label uncertainty.',
+    'myParty contains the player own entire currently disclosed party and each known move, including bench Pokémon (not only current buttons).',
+    'battleEvents contains structured public gameplay events, NOT user chat. Use them to track moves used, switches, weather, damage, status and revealed items.',
+    'opponentMovesSeen lists only moves the opponent actually used, never a hidden full enemy move set.',
+    'When asked for a best move, consider all player party Pokémon and their known moves, legal active move choices, previous turn events, and opponentActive. Weigh switches versus attacks. Offer concise, useful recommendations with clearly labeled uncertainty.',
     'If opponentActive is empty, say the active foe could not be detected instead of inventing one. Never treat opponentRevealed bench Pokémon as currently active.',
-    'Do not claim knowledge of unrevealed enemy moves, items, abilities, stats, or exact damage.',
+    'Do not claim knowledge of unrevealed enemy moves, items, abilities, stats, or exact damage. Only the player party moves are fully known from player data; enemy move lists must come from observed events.',
     'Clearly distinguish confirmed facts, estimates, and unknown information.',
     'Beware of Doubles ally targeting and spread damage when relevant. Do not assume a format.',
     'If the current battle is not reliably detected, say so; answer general questions normally.',
@@ -41,10 +44,31 @@
       opponentActive:side(d.opponentActive),
       opponentRevealed:seen(d.opponentRevealed),
       opponentUnknownSlots:Number.isInteger(d.opponentUnknownSlots)&&d.opponentUnknownSlots>=0&&d.opponentUnknownSlots<=6?d.opponentUnknownSlots:null,
+      myParty:Array.isArray(d.myParty)?d.myParty.slice(0,12).map(p=>({
+        slot:Number.isInteger(p?.slot)?p.slot:null,name:cleanText(p?.name,65),species:cleanText(p?.species,65),
+        hp:cleanText(p?.hp,25),status:cleanText(p?.status,15),active:p?.active===true,fainted:p?.fainted===true,
+        ability:cleanText(p?.ability,65),item:cleanText(p?.item,65),teraType:cleanText(p?.teraType,25),
+        moves:Array.isArray(p?.moves)?p.moves.slice(0,6).map(m=>cleanText(m,65)).filter(Boolean):[],
+        currentMoves:Array.isArray(p?.currentMoves)?p.currentMoves.slice(0,6).map(m=>({
+          name:cleanText(m?.name,65),pp:Number.isInteger(m?.pp)?m.pp:null,
+          maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:m?.disabled===true,
+          target:cleanText(m?.target,35)
+        })):[]
+      })).filter(p=>p.species):[],
+      opponentMovesSeen:Array.isArray(d.opponentMovesSeen)?d.opponentMovesSeen.slice(0,12).map(p=>({
+        name:cleanText(p?.name,65),moves:Array.isArray(p?.moves)?p.moves.slice(0,6).map(m=>cleanText(m,65)):[]
+      })).filter(p=>p.name):[],
+      battleEvents:Array.isArray(d.battleEvents)?d.battleEvents.slice(-65).filter(e=>
+        ['move','switch','drag','replace','faint','cant','-status','-curestatus','-damage','-heal','-ability','-item','-enditem','-terastallize','-weather','-fieldstart','-fieldend','-sidestart','-sideend','-boost','-unboost','detailschange','-formechange'].includes(e?.type)
+      ).map(e=>({
+        turn:Number.isInteger(e?.turn)?e.turn:null,type:e.type,
+        side:['mine','opponent'].includes(e?.side)?e.side:'unknown',pokemon:cleanText(e?.pokemon,65),
+        move:cleanText(e?.move,65),target:cleanText(e?.target,65),detail:cleanText(e?.detail,65)
+      })):[],
       buttons:Array.isArray(d.buttons)?d.buttons.slice(0,24)
         .filter(b=>['chooseMove','chooseSwitch'].includes(b?.action))
         .map(b=>({name:cleanText(b.name,75),action:b.action,disabled:b.disabled===true})) : []
-      // Never include usernames, room URLs, chat text, raw logs, or profile data.
+      // Never include usernames, room URLs, arbitrary chat text, raw logs, or profile data.
     };
   }
   function sanitizeHistory(v) {

@@ -63,6 +63,7 @@
     for(const p of myActive) p.species=myLookup.get(p.name.toLowerCase())||p.name;
     const buttons=readButtons(room);
     return {
+      roomId:clean(room?.dataset?.roomid||room?.id?.replace(/^room-/i,'')||'',160),
       battleFound:!!battle,turn,myActive,opponentActive,opponentRevealed:foeList,
       opponentUnknownSlots:opponent.unknown,buttons,
       // Legacy status reader fields (not forwarded as raw log or headers).

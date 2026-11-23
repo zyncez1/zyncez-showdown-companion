@@ -1,4 +1,4 @@
-# Zyncez AI Battle Companion (v0.6)
+# Zyncez AI Battle Companion (v0.7)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -17,7 +17,7 @@ You only need to paste the key once per browser profile/extension installation. 
 ## Important behavior
 
 - No background chat, polling, AI analysis, automatic messages, or automatic gameplay. **AI generation requests** are made only when you press **Send**. Clicking **Browse** explicitly fetches the OpenRouter model catalog; clicking a model only changes the locally saved selection.
-- Each request includes the user's question, up to eight recent AI chat messages, and a **limited sanitized snapshot** containing your active Pokémon, active opposing Pokémon, previously revealed opponents, unknown opposing team slots, turn, and visible move/switch options. No battle logs, usernames, room URLs, or Showdown chat are forwarded.
+- Each request includes the user's question, up to eight recent AI chat messages, and a **limited sanitized snapshot** containing your full own party and known moves, active Pokémon and their available move PP, active opponents, previously revealed opponents, revealed opponent moves, and structured battle events. No **raw** battle logs, player chat, usernames, or room URLs are forwarded. Only selected structured battle actions are sent (e.g. moves, switches, statuses).
 - The OpenRouter endpoint is `https://openrouter.ai/api/v1/chat/completions`, called **from the extension's service worker**, not from the page. The API key is not hardcoded in the extension files and never sent to the Showdown web page itself.
 - The key is kept in **`chrome.storage.local` restricted to trusted extension contexts**. It survives browser restarts but is **not encrypted against someone who can access your local browser profile or computer**. Use a private, low-limit API key. Never share a profile, screenshots showing the key, source files with keys added, or export sensitive browser data. You may revoke the key in OpenRouter if it is exposed.
 - Requests can incur OpenRouter usage charges, depending on model and account limits. Your OpenRouter balance is separate from any ChatGPT subscription.
@@ -25,7 +25,18 @@ You only need to paste the key once per browser profile/extension installation. 
 - **Do not publish this unpacked developer extension as a shared build with a saved key.** Before public release, consider a user-authenticated backend to keep keys off client machines entirely.
 
 
-## v0.6 battle awareness
+## v0.7 — Full party, benched moves, and battle history
+
+- When you click **Send** or **↻**, the extension reads Showdown's own **player battle request** using a read-only `chrome.scripting.executeScript` call in the active tab. It does not run a server or send gameplay commands.
+- The personal battle request provides **all disclosed party Pokémon**, including benched Pokémon, plus each member's known move IDs (including Random Battles), ability, item, tera type and HP when available. Active move requests provide PP and disabled flags; these are matched against active field Pokémon in Singles and Doubles.
+- The same on-demand read obtains **public battle protocol events** and converts the most recent moves, switches, fainting, damage, status, weather, terrain, items and abilities into compact, structured events.
+- The companion remembers only **opponent moves that have actually appeared in battle**. It never claims to see unrevealed opposing moves.
+- Ordinary public player messages, private messages, opponent usernames and raw battle logs are **not included** in the OpenRouter AI payload. The curated battle-event summary *is* included so the model can reason about prior actions.
+- In **Local mode**, try `party` to list your entire disclosed team and moves or `history` for recent game actions. In **OpenRouter AI mode**, ask **“What's my best move? Consider my full party and everything revealed so far.”**
+- If Showdown's in-page battle request is inaccessible in a particular version, the previous DOM battle reader still works for active/revealed opposing Pokémon, but full bench moves may be unavailable. Live Opera testing is still required.
+- The extension now needs `scripting` permission plus Showdown-site host access exclusively to run the on-demand read. **No timers, automatic gameplay actions, or AI calls are added.**
+
+## v0.6 opponent awareness (still included)
 
 - When you **send a message or press ↻**, the extension scans the displayed battle locally and updates an info strip showing **Opponent active**, **Revealed**, and **Hidden slots**. No polling or automatic advice.
 - Showdown's far-side (`lstatbar`) represents the opponent, and near-side (`rstatbar`) represents you. We read opponent team icons from `.rightbar`, including known species attached to nicknames; `Not revealed` icons are **not** treated as known Pokémon.
@@ -60,9 +71,11 @@ node --test tests/*.test.js
 node --check src/content.js
 node --check src/background.js
 node --check src/ai-core.js
+node --check src/game-capture.js
+node --check src/battle-state.js
 ```
 
-The complete ZIP contains local Git history, including v0.1, v0.2, v0.3, and v0.6. The new remote repository is `zyncez1/zyncez-showdown-companion`. To connect it manually from the local project folder:
+This ZIP is the **installable extension source**. Local Git history is kept in the development project, and the remote repository is `zyncez1/zyncez-showdown-companion`. To connect it manually from the local project folder:
 
 ```bash
 git remote add origin https://github.com/zyncez1/zyncez-showdown-companion.git
