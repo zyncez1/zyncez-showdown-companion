@@ -1,0 +1,20 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.join(__dirname,'..');
+test('clicking the toolbar extension opens the OpenRouter settings popup',()=>{
+  const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
+  assert.equal(m.action.default_popup,'popup.html');
+  const html=fs.readFileSync(path.join(root,'popup.html'),'utf8');
+  assert.match(html,/<input[^>]+id="key"[^>]+type="password"/);
+  assert.match(html,/Save OpenRouter settings/);
+  assert.match(html,/src\/popup\.js/);
+});
+test('messenger re-reads settings after toolbar changes, without initiating AI in popup',()=>{
+  const content=fs.readFileSync(path.join(root,'src/content.js'),'utf8');
+  const popup=fs.readFileSync(path.join(root,'src/popup.js'),'utf8');
+  assert.match(content,/await loadSettings\(\)/);
+  assert.doesNotMatch(popup,/ZYNCEZ_ASK/);
+});
