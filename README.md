@@ -1,12 +1,4 @@
-## v0.11: On-demand Speed-aware battle decisions
-
-When you ask a question or press refresh, the extension reads your battle's visible team and current field, and calculates **Speed tiers**. It uses your actual unboosted Speed from Showdown's own player-side battle request, your on-field Speed stages, status, held item and known ability, and visible Tailwind/Trick Room/weather/terrain. For an opponent it looks up the **public species base Speed** through Showdown's client Dex and computes an **estimated min–max** at the displayed level (0–31 IVs, 0–252 Speed EVs, Speed-lowering to Speed-boosting natures). Unknown enemy abilities/items, and unsupported effects are **not invented**. A Speed comparison assumes **equal priority**, no unforeseen abilities or item effects, and no speed ties; switches and priority moves can override it. Trick Room reverses the direction. No damage values are asserted or calculated yet; move ranking remains contextual AI advice, not a full deterministic damage simulator.
-
-Ask **`speed`** in Local mode for a Speed summary, or **“Who moves first and what's my best play?”** in OpenRouter mode. It still makes **zero AI calls** until you press Send.
-
-**Supported baseline:** modern standard Pokémon rules, with on-demand reading and conservative fallbacks. Unusual abilities, moves and nonstandard/metagame effects may require confirmation. OpenRouter API key stays in local browser extension storage. Live Opera compatibility still needs verification.
-
-# Zyncez AI Battle Companion (v0.11)
+# Zyncez AI Battle Companion (v0.14)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -21,6 +13,48 @@ A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messe
 7. If you prefer, the exact same settings are also behind **⚙** inside the in-game messenger. The message panel rechecks saved settings when you open it or send a question.
 
 You only need to paste the key once per browser profile/extension installation. **To change models, use the quick-switch dropdown or Browse button at the top of the Showdown messenger, or use the extension toolbar popup.** Browse provides search, a Free only checkbox, and available token prices. Model selection saves immediately without making an AI request. The exact model ID field remains available as an advanced fallback. You can replace/remove the key later in ⚙ Settings. **Local commands** can be selected for basic offline type matchups, and need no API key.
+
+## v0.14 — Unified recommendation and evidence-based justification
+
+When you ask a tactical question such as **“What is my next best move?”**, the extension uses **one connected on-demand decision pipeline**, not separate calculator answers:
+
+1. Read the active battle, your full party and available move request, revealed opponent moves, field conditions, Speed matchups, and recent battle events.
+2. Generate legal candidate moves, switches, targets, and Doubles combinations. Locally compute supported damage ranges with bundled `@smogon/calc` and estimate turn order with known Speed information.
+3. Estimate potential retaliation **only from opponent moves already revealed**. Unknown attacks/items/sets remain unknown. Compare potential pressure, risk of being knocked out before acting, protecting a teammate, future speed control, and possible opponent switches/Protect.
+4. Choose a bounded heuristic recommendation and an alternative. A separate `justification-engine.js` rechecks move/switch availability and composes **observable supporting evidence**, a meaningful tradeoff, and circumstances that could reverse the choice. If the action cannot be verified, it returns insufficient information rather than a false best move.
+5. Send that combined recommendation **inside the same battle snapshot** to your chosen OpenRouter model in **one request when you press Send**. GPT receives instructions to reconcile the summary with battle facts and communicate its conclusion naturally, respecting Short / Medium / Long and personality preferences. Internal scores and checklists are *not* shown in chat.
+
+**Examples:** A fast high-damage move can beat a defensive option if the modeled damage secures a possible KO first. If your Pokémon is low on HP and an opponent has revealed a dangerous faster attack, protecting can become the preferred choice. These are conditional estimates, not guaranteed outcomes or human cognition.
+
+**Limitations:** This is an evidence-based tactical heuristic, not perfect opponent prediction or a real win-probability simulator. Smogon calculations depend on inferred stats, unknown items/abilities and supported move mechanics. GPT may still make mistakes or deviate from the local recommendation; there is no automatic move selection or second paid verification request. Always follow applicable Showdown/tournament outside-assistance rules.
+
+## v0.12 — Layered tactical evaluation and evidence-based justifications
+
+The companion has a new **local, bounded decision engine** (`src/decision-engine.js`). It runs **only when you press Send with a tactical battle question**. It does *not* issue additional OpenRouter requests, click moves, monitor the match in the background, or display its internal checklist in conversation.
+
+The silent decision layers work as follows:
+
+1. **Verified game evidence:** use the current player decision request, own team, active foes, revealed opponent moves, known types, speed comparisons, Tailwind/Trick Room, and event history. Missing or hidden information remains missing.
+2. **Legal candidate generation:** enumerate currently offered non-disabled moves with PP and legal known switches. Respect forced-switch and trapped slots. Do not invent an unavailable move. For Doubles, create bounded joint actions and forbid two partners switching into the same reserve.
+3. **Matchup and speed evaluation:** compare the known type chart, move category/power as a **relative pressure proxy**, priority, accuracy, available Speed estimates and field effects. The earlier version used these as estimates; **v0.13 supplements them with Smogon-calculated damage ranges when supported**. Neither system provides actual opponent-choice probabilities or win chances. Abilities/items that are unobserved can invalidate a type-only or Speed-based comparison.
+4. **Opponent countermove scenarios:** consider an opposing attack, possible switches, revealed Protect variants, and revealed Speed control moves. A defensive Protect from a damaged opponent may be considered as a **hypothetical, explicitly unconfirmed** possibility, not stated as a known move.
+5. **Doubles synergy and friendly-fire audit:** consider coordinated targeting, a Protect paired with an attack, Helping Hand, spread moves, teammate susceptibility to allied area damage, and known normal-condition immunities. Some exceptions (e.g. Gravity/Mold Breaker, spread move quirks) remain unmodeled.
+6. **Conservative ranking and contrastive justification:** compare upside against bad counterplays, preserve strategic diversity (attacks, defense, support, switches), select a suggested action pair, inspect a runner-up alternative, and produce **short, evidence-based reasons and cautions** for the LLM.
+
+The AI receives a **sanitized compact verdict**, not numeric scores, scoring weights, candidate enumerations, private internal reasoning, or hidden opponent information. The model is instructed to explain recommendations naturally: e.g. "I'd use Protect here because you likely move second, while your partner can attack," instead of reciting a numbered internal report. Your **Short / Medium / Long and personality settings** remain unchanged.
+
+If the engine lacks a current legal request or current foe data, it explicitly reports **insufficient evidence**. Its advice is heuristic and cannot guarantee the objectively best move. Generation-aware damage ranges are now modeled using bundled @smogon/calc, but comprehensive hidden ability/item interactions and fully exact KO probabilities remain unresolved. Unit tests + local Chromium smoke check cover the new core; live Opera and your paid OpenRouter model still need a real-battle check.
+
+To update: replace files in your **existing unpacked extension directory**, reload it under `opera://extensions`, then refresh Showdown. Try: **"What's the best play this turn, considering what my opponent might do?"**
+
+## v0.11: On-demand Speed-aware battle decisions
+
+When you ask a question or press refresh, the extension reads your battle's visible team and current field, and calculates **Speed tiers**. It uses your actual unboosted Speed from Showdown's own player-side battle request, your on-field Speed stages, status, held item and known ability, and visible Tailwind/Trick Room/weather/terrain. For an opponent it looks up the **public species base Speed** through Showdown's client Dex and computes an **estimated min–max** at the displayed level (0–31 IVs, 0–252 Speed EVs, Speed-lowering to Speed-boosting natures). Unknown enemy abilities/items, and unsupported effects are **not invented**. A Speed comparison assumes **equal priority**, no unforeseen abilities or item effects, and no speed ties; switches and priority moves can override it. Trick Room reverses the direction. In v0.13, supported attacks are also scored with local @smogon/calc ranges (read the limitations below); turn order and damage alone do not determine the optimal play.
+
+Ask **`speed`** in Local mode for a Speed summary, or **“Who moves first and what's my best play?”** in OpenRouter mode. It still makes **zero AI calls** until you press Send.
+
+**Supported baseline:** modern standard Pokémon rules, with on-demand reading and conservative fallbacks. Unusual abilities, moves and nonstandard/metagame effects may require confirmation. OpenRouter API key stays in local browser extension storage. Live Opera compatibility still needs verification.
+
 
 ## v0.11 — Short, Medium, and Long conversation controls
 
@@ -47,7 +81,7 @@ You only need to paste the key once per browser profile/extension installation. 
 - The OpenRouter endpoint is `https://openrouter.ai/api/v1/chat/completions`, called **from the extension's service worker**, not from the page. The API key is not hardcoded in the extension files and never sent to the Showdown web page itself.
 - The key is kept in **`chrome.storage.local` restricted to trusted extension contexts**. It survives browser restarts but is **not encrypted against someone who can access your local browser profile or computer**. Use a private, low-limit API key. Never share a profile, screenshots showing the key, source files with keys added, or export sensitive browser data. You may revoke the key in OpenRouter if it is exposed.
 - Requests can incur OpenRouter usage charges, depending on model and account limits. Your OpenRouter balance is separate from any ChatGPT subscription.
-- This build distinguishes opposing and friendly Pokémon from Showdown's far/near statbars, uses disclosed opposing team icons, and retains earlier sightings within a battle. It does not read hidden team details or calculate all move modifiers. AI advice may be imperfect; event/tournament policies may forbid live coaching.
+- This build distinguishes opposing and friendly Pokémon from Showdown's far/near statbars, uses disclosed opposing team icons, and retains earlier sightings within a battle. It does not read hidden team details or guarantee all conditional move modifiers. AI advice may be imperfect; event/tournament policies may forbid live coaching.
 - **Do not publish this unpacked developer extension as a shared build with a saved key.** Before public release, consider a user-authenticated backend to keep keys off client machines entirely.
 
 
@@ -123,3 +157,10 @@ Do not commit API keys to Git. All API credentials belong in the extension's Set
 ### Updating safely
 
 Replace the extension files **in the exact same unpacked extension folder** to preserve its browser extension ID and stored key, then open `opera://extensions` and press **Reload**. Refresh Pokémon Showdown afterward. You do not need to share or re-enter your OpenRouter key if your original extension storage is retained.
+
+
+## v0.13: Smogon damage calculations
+
+This build includes `@smogon/calc` v0.12.0 browser bundles under `vendor/smogon-calc` from the user-provided npm package. When you ask a tactical question, the extension estimates attack damage using species, move, generation, observed player stats where reconstructible, and min/max opponent stat spreads. A range is **not** a guarantee against hidden items, abilities, EVs, IVs or mechanics. When the calculator cannot model a move/format reliably it leaves damage unknown rather than inventing a percentage.
+
+Damage calculations use a bounded per-question cache and are performed locally; OpenRouter still receives just the compact decision support snapshot after you press Send. No automatic moves, no API key changes.

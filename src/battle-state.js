@@ -106,26 +106,40 @@
     result.opponentMovesSeen=[];
     result.gameReadStatus='unavailable';
     result.battleConditions=null;
+    result.playerRequestType='';
+    result.playerTrapped=[];
+    result.opponentMoveDetails=[];
     if(!game?.available) {
       result.gameReadStatus=clean(game?.reason||'Game client data not available',120);
       // Show the own team disclosed in the sidebar even if client room data cannot be accessed.
       return result;
     }
     result.gameReadStatus='connected';
+    result.playerRequestType=['move','switch','wait','team'].includes(game.requestType)?game.requestType:'';
+    result.playerTrapped=Array.isArray(game.playerTrapped)?game.playerTrapped.slice(0,3).map(Boolean):[];
+    result.opponentMoveDetails=Array.isArray(game.opponentMoveDetails)?game.opponentMoveDetails.slice(0,24).map(m=>({
+      name:clean(m?.name,65),type:clean(m?.type,20),category:clean(m?.category,20),
+      basePower:Number.isFinite(m?.basePower)?m.basePower:null,
+      accuracy:Number.isFinite(m?.accuracy)?m.accuracy:null,priority:Number.isInteger(m?.priority)?m.priority:null,
+      target:clean(m?.target,40)
+    })).filter(m=>m.name):[];
     // Current battle field is read from Showdown's state, never guessed from chat.
     if(game.battleConditions && typeof game.battleConditions==='object') {
       const condition=game.battleConditions;
       result.battleConditions={generation:Number.isInteger(condition.generation)?condition.generation:9,
         weather:clean(condition.weather,40),terrain:clean(condition.terrain,40),trickRoom:!!condition.trickRoom,
-        tailwind:{mine:!!condition.tailwind?.mine,opponent:!!condition.tailwind?.opponent}};
+        tailwind:{mine:!!condition.tailwind?.mine,opponent:!!condition.tailwind?.opponent},
+        screens:{mine:{reflect:!!condition.screens?.mine?.reflect,lightScreen:!!condition.screens?.mine?.lightScreen,auroraVeil:!!condition.screens?.mine?.auroraVeil},
+          opponent:{reflect:!!condition.screens?.opponent?.reflect,lightScreen:!!condition.screens?.opponent?.lightScreen,auroraVeil:!!condition.screens?.opponent?.auroraVeil}}};
     }
     const activeNames=new Set((result.myActive||[]).map(p=>p.name?.toLowerCase()).filter(Boolean));
     result.myParty=(Array.isArray(game.myParty)?game.myParty:[]).slice(0,12).map(p=>({
       slot:Number.isInteger(p?.slot)?p.slot:null,name:clean(p?.name,65),species:clean(p?.species,65),
-      hp:clean(p?.hp,25),status:clean(p?.status,15),active:!!p?.active||activeNames.has(String(p?.name||'').toLowerCase()),
+      types:Array.isArray(p?.types)?p.types.slice(0,2).map(x=>clean(x,20)):[],hp:clean(p?.hp,25),status:clean(p?.status,15),active:!!p?.active||activeNames.has(String(p?.name||'').toLowerCase()),
       fainted:!!p?.fainted,moves:Array.isArray(p?.moves)?p.moves.slice(0,6).map(m=>clean(m,65)).filter(Boolean):[],
       ability:clean(p?.ability,65),item:clean(p?.item,65),teraType:clean(p?.teraType,25),
       speed:Number.isInteger(p?.speed)&&p.speed>0?p.speed:null,
+      stats:p?.stats&&typeof p.stats==='object'?Object.fromEntries(['hp','atk','def','spa','spd','spe'].filter(x=>Number.isInteger(p.stats[x])&&p.stats[x]>0).map(x=>[x,p.stats[x]])):{},
       level:Number.isInteger(p?.level)&&p.level>=1&&p.level<=100?p.level:null
     })).filter(p=>p.species);
     // Match move-request slots by active field order, not by the original party
@@ -139,7 +153,9 @@
       const requested=activeMoves[index]?.moves;
       if(!partyMon||!Array.isArray(requested)||!requested.length)continue;
       partyMon.currentMoves=requested.slice(0,6).map(m=>({name:clean(m?.name,65),pp:Number.isInteger(m?.pp)?m.pp:null,
-        maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:clean(m?.target,35)}));
+        maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:clean(m?.target,35),type:clean(m?.type,20),category:clean(m?.category,20),
+        basePower:Number.isFinite(m?.basePower)?m.basePower:null,accuracy:Number.isFinite(m?.accuracy)?m.accuracy:null,
+        priority:Number.isInteger(m?.priority)?m.priority:null}));
     }
     function mergeField(displayed,observed) {
       const inDom=Array.isArray(displayed)?displayed:[];
@@ -155,8 +171,11 @@
         return {...details,...p,
           level:Number.isInteger(details.level)?details.level:null,
           baseSpeed:Number.isInteger(details.baseSpeed)?details.baseSpeed:null,
+          boosts:details.boosts&&typeof details.boosts==='object'?details.boosts:{},
+          terastallized:clean(details.terastallized,25),
           speedStage:Number.isInteger(details.speedStage)?details.speedStage:0,
-          ability:clean(details.ability,65),item:clean(details.item,65)};
+          ability:clean(details.ability,65),item:clean(details.item,65),
+          types:Array.isArray(details.types)&&details.types.length?details.types.slice(0,2):Array.isArray(p.types)?p.types:[]};
       });
       return (merged.length?merged:inClient).slice(0,3);
     }

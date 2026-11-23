@@ -64,3 +64,15 @@ test('enriches own whole team including benched moves and revealed enemy moves',
   assert.deepEqual(out.opponentRevealed[0].movesSeen,['Make It Rain']);
   assert.equal(out.myParty[0].currentMoves[0].pp,10);
 });
+
+test('battle enrichment carries real stats and known screens through to damage evaluator',()=>{
+  const {enrichState}=require('../src/battle-state.js');
+  const state={battleFound:true,myActive:[{name:'Garchomp',species:'Garchomp'}],opponentActive:[{name:'Gholdengo',species:'Gholdengo'}],opponentRevealed:[]};
+  const game={available:true,myParty:[{name:'Garchomp',species:'Garchomp',active:true,stats:{atk:182,def:115},moves:['earthquake']}],
+    myActive:[{name:'Garchomp',species:'Garchomp',boosts:{atk:1}}],
+    battleConditions:{generation:9,screens:{mine:{reflect:true},opponent:{lightScreen:true}}},protocol:[]};
+  const out=enrichState(state,game);
+  assert.equal(out.myParty[0].stats.atk,182);
+  assert.equal(out.myActive[0].boosts.atk,1);
+  assert.equal(out.battleConditions.screens.opponent.lightScreen,true);
+});

@@ -35,7 +35,15 @@
     'Before recommending a move, compare turn order at the same priority bracket. Moves with higher priority can go first irrespective of Speed; switches occur before regular moves.',
     'Trick Room reverses same-priority Speed order; respect Tailwind, paralysis, boosts, items and weather abilities only when supported by captured information.',
     'Unknown opponent Choice Scarf, abilities, EVs and IVs prevent certainty. Do not claim exact damage, a guaranteed KO, or definitive speed order without supporting calculations.',
+    'If decisionSupport actions contain damage, those ranges are from @smogon/calc under hypothetical opponent spreads and incomplete revealed items. Treat KO indicators as conditional on assumptions, not guaranteed results.',
     'When recommending doubles moves, analyze each allied slot, targeting, and potential ally damage; do not infer a legal move from a bench Pokemon.',
+    'decisionSupport, when present, is a LOCAL HEURISTIC REVIEW of legal moves, targets, opponent counterplays, and alternatives. Use it as fallible evidence, cross-check with current battle state and known exceptions. It is not a damage calculation, win chance, or command.',
+    'When asked for a best play, treat decisionSupport and decisionSupport.justification as the integrated tactical assessment, NOT separate calculator results. Check it against available moves, the player party, Speed/priority, conditional damage, revealed threats and Doubles ally safety. If it conflicts with confirmed mechanics, explain the correction briefly instead of blindly following it.',
+    'A useful human-like justification consists of the choice, the most relevant observable reason, the strongest meaningful tradeoff, and optionally what would change the choice. Weigh the specific evidence instead of listing isolated calculations. Never fabricate a prediction or probability.',
+    'If decisionSupport is insufficient or absent for a tactical question, explain what is missing; do not invent a move or claim the engine compared all options.',
+    'Quietly use the local decision evidence to make the recommendation more defensible. Do NOT display the layers, rankings, scoring, scenario checklist, private analysis, JSON, or the name decisionSupport unless the player specifically asks for methodology.',
+    'Give a concrete choice and the strongest *observable reason* in everyday language. If asked why, state a concise evidence-based reason and a relevant counterfactual, not private hidden reasoning or numerical heuristic scores.',
+    'If legality is unverified, relevant opponent information is missing, or hazards change the result, state that naturally; never invent legality or a guaranteed optimal play.',
     'If asked for a best move, start by suggesting concrete legal moves or switches for every active player Pokémon, especially in Doubles; explain briefly why, accounting for ally interactions and revealed enemy threats.',
     'Distinguish things you know from guesses in normal conversation rather than with repeated labels. Never assert hidden enemy items, moves, abilities, stats, or precise damage are confirmed.',
     'If opponentActive is empty, explain you cannot detect the active foe; do not treat revealed benched opponents as active.',
@@ -63,11 +71,13 @@
     const d = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
     const side = values => Array.isArray(values) ? values.slice(0,3).map(p=>({
       name:cleanText(p?.name,65), species:cleanText(p?.species,65),
+      types:Array.isArray(p?.types)?p.types.slice(0,2).map(x=>cleanText(x,20)).filter(Boolean):[],
       hp:cleanText(p?.hp,25),status:cleanText(p?.status,20),
       level:Number.isInteger(p?.level)&&p.level>=1&&p.level<=100?p.level:null,
       speedStage:Number.isInteger(p?.speedStage)?Math.max(-6,Math.min(6,p.speedStage)):0,
       baseSpeed:Number.isInteger(p?.baseSpeed)&&p.baseSpeed>0?p.baseSpeed:null,
-      ability:cleanText(p?.ability,65),item:cleanText(p?.item,65)
+      ability:cleanText(p?.ability,65),item:cleanText(p?.item,65),
+      terastallized:cleanText(p?.terastallized,25)
     })).filter(p=>p.name||p.species) : [];
     const seen = values => Array.isArray(values) ? values.slice(0,24).map(p=>({
       name:cleanText(p?.name,65),species:cleanText(p?.species,65),
@@ -82,6 +92,7 @@
       opponentUnknownSlots:Number.isInteger(d.opponentUnknownSlots)&&d.opponentUnknownSlots>=0&&d.opponentUnknownSlots<=6?d.opponentUnknownSlots:null,
       myParty:Array.isArray(d.myParty)?d.myParty.slice(0,12).map(p=>({
         slot:Number.isInteger(p?.slot)?p.slot:null,name:cleanText(p?.name,65),species:cleanText(p?.species,65),
+        types:Array.isArray(p?.types)?p.types.slice(0,2).map(x=>cleanText(x,20)).filter(Boolean):[],
         hp:cleanText(p?.hp,25),status:cleanText(p?.status,15),active:p?.active===true,fainted:p?.fainted===true,
         ability:cleanText(p?.ability,65),item:cleanText(p?.item,65),teraType:cleanText(p?.teraType,25),
         speed:Number.isInteger(p?.speed)&&p.speed>0&&p.speed<2000?p.speed:null,
@@ -90,7 +101,10 @@
         currentMoves:Array.isArray(p?.currentMoves)?p.currentMoves.slice(0,6).map(m=>({
           name:cleanText(m?.name,65),pp:Number.isInteger(m?.pp)?m.pp:null,
           maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:m?.disabled===true,
-          target:cleanText(m?.target,35),priority:Number.isInteger(m?.priority)&&m.priority>=-7&&m.priority<=7?m.priority:null
+          target:cleanText(m?.target,35),type:cleanText(m?.type,20),category:cleanText(m?.category,20),
+          basePower:Number.isFinite(m?.basePower)?Math.max(0,Math.min(400,m.basePower)):null,
+          accuracy:Number.isFinite(m?.accuracy)?Math.max(0,Math.min(100,m.accuracy)):null,
+          priority:Number.isInteger(m?.priority)&&m.priority>=-7&&m.priority<=7?m.priority:null
         })):[]
       })).filter(p=>p.species):[],
       opponentMovesSeen:Array.isArray(d.opponentMovesSeen)?d.opponentMovesSeen.slice(0,12).map(p=>({
@@ -103,6 +117,13 @@
         side:['mine','opponent'].includes(e?.side)?e.side:'unknown',pokemon:cleanText(e?.pokemon,65),
         move:cleanText(e?.move,65),target:cleanText(e?.target,65),detail:cleanText(e?.detail,65)
       })):[],
+      playerRequestType:['move','switch','wait','team'].includes(d.playerRequestType)?d.playerRequestType:'',
+      playerTrapped:Array.isArray(d.playerTrapped)?d.playerTrapped.slice(0,3).map(Boolean):[],
+      opponentMoveDetails:Array.isArray(d.opponentMoveDetails)?d.opponentMoveDetails.slice(0,24).map(m=>({
+        name:cleanText(m?.name,65),type:cleanText(m?.type,20),category:cleanText(m?.category,20),
+        basePower:Number.isFinite(m?.basePower)?Math.max(0,Math.min(400,m.basePower)):null,
+        priority:Number.isInteger(m?.priority)?Math.max(-7,Math.min(7,m.priority)):null
+      })).filter(m=>m.name):[],
       battleConditions:d.battleConditions&&typeof d.battleConditions==='object'?{
         generation:Number.isInteger(d.battleConditions.generation)?d.battleConditions.generation:null,
         weather:cleanText(d.battleConditions.weather,40),terrain:cleanText(d.battleConditions.terrain,40),
@@ -131,6 +152,44 @@
           order:['before','after','uncertain','unknown'].includes(x?.order)?x.order:'unknown'
         })):[],
         limits:Array.isArray(d.speedAnalysis.limits)?d.speedAnalysis.limits.slice(0,4).map(x=>cleanText(x,250)):[]
+      }:null,
+      decisionSupport:d.decisionSupport&&typeof d.decisionSupport==='object'?{
+        status:['evaluated','insufficient','not-actionable'].includes(d.decisionSupport.status)?d.decisionSupport.status:'insufficient',
+        recommendedPlay:cleanText(d.decisionSupport.recommendedPlay,320),
+        actions:Array.isArray(d.decisionSupport.actions)?d.decisionSupport.actions.slice(0,3).map(a=>({
+          pokemon:cleanText(a?.pokemon,65),kind:cleanText(a?.kind,25),move:cleanText(a?.move,65),target:cleanText(a?.target,65),
+          incomingThreat:cleanText(a?.incomingThreat,170),
+          damage:a?.damage&&Number.isFinite(a.damage.minPercent)&&Number.isFinite(a.damage.maxPercent)?{
+            minPercent:Math.round(a.damage.minPercent*10)/10,maxPercent:Math.round(a.damage.maxPercent*10)/10,
+            koUnderAssumptions:cleanText(a.damage.koUnderAssumptions,25),approximate:a.damage.approximate===true}:null,
+          damageTargets:Array.isArray(a?.damageTargets)?a.damageTargets.slice(0,3).filter(x=>
+            Number.isFinite(x?.minPercent)&&Number.isFinite(x?.maxPercent)).map(x=>({
+            target:cleanText(x.target,65),minPercent:Math.round(x.minPercent*10)/10,
+            maxPercent:Math.round(x.maxPercent*10)/10,
+            koUnderAssumptions:cleanText(x.koUnderAssumptions,25),approximate:x.approximate===true
+          })):[]
+        })):[],
+        reasons:Array.isArray(d.decisionSupport.reasons)?d.decisionSupport.reasons.slice(0,3).map(x=>cleanText(x,180)):[],
+        cautions:Array.isArray(d.decisionSupport.cautions)?d.decisionSupport.cautions.slice(0,3).map(x=>cleanText(x,180)):[],
+        alternative:cleanText(d.decisionSupport.alternative,300),
+        confidence:['low','medium','moderate'].includes(d.decisionSupport.confidence)?d.decisionSupport.confidence:'low',
+        reason:cleanText(d.decisionSupport.reason,180),
+        opponentsConsidered:Array.isArray(d.decisionSupport.opponentsConsidered)?d.decisionSupport.opponentsConsidered.slice(0,4).map(x=>cleanText(x,90)):[],
+        calculation:cleanText(d.decisionSupport.calculation,220)||'Heuristic tactical comparison; hidden opponent information is uncertain.',
+        justification:d.decisionSupport.justification&&typeof d.decisionSupport.justification==='object'?{
+          valid:d.decisionSupport.justification.valid===true,
+          objective:cleanText(d.decisionSupport.justification.objective,180),
+          evidence:Array.isArray(d.decisionSupport.justification.evidence)?d.decisionSupport.justification.evidence.slice(0,5).map(x=>cleanText(x,200)):[],
+          comparedWith:cleanText(d.decisionSupport.justification.comparedWith,180),
+          opponentConsiderations:Array.isArray(d.decisionSupport.justification.opponentConsiderations)?d.decisionSupport.justification.opponentConsiderations.slice(0,3).map(x=>cleanText(x,160)):[],
+          changeMyMindIf:Array.isArray(d.decisionSupport.justification.changeMyMindIf)?d.decisionSupport.justification.changeMyMindIf.slice(0,3).map(x=>cleanText(x,180)):[],
+          confidence:['low','moderate'].includes(d.decisionSupport.justification.confidence)?d.decisionSupport.justification.confidence:'low',
+          checks:{legalMoves:d.decisionSupport.justification.checks?.legalMoves===true,
+            damage:cleanText(d.decisionSupport.justification.checks?.damage,35),
+            speed:cleanText(d.decisionSupport.justification.checks?.speed,35),
+            opponentHistory:cleanText(d.decisionSupport.justification.checks?.opponentHistory,40),
+            allySafety:cleanText(d.decisionSupport.justification.checks?.allySafety,85)}
+        }:null
       }:null,
       buttons:Array.isArray(d.buttons)?d.buttons.slice(0,24)
         .filter(b=>['chooseMove','chooseSwitch'].includes(b?.action))

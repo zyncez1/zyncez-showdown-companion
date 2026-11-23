@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.11.0",
-  "description": "On-demand Pokémon Showdown companion with on-demand Speed analysis, team awareness, and conversational coaching.",
+  "version": "0.14.0",
+  "description": "On-demand Showdown companion with integrated Smogon calculations, opponent counterplays and evidence-based recommendations.",
   "permissions": [
     "scripting",
     "storage"
@@ -22,6 +22,11 @@
         "src/types.js",
         "src/battle-state.js",
         "src/speed.js",
+        "vendor/smogon-calc/data.min.js",
+        "vendor/smogon-calc/calc.min.js",
+        "src/damage-engine.js",
+        "src/justification-engine.js",
+        "src/decision-engine.js",
         "src/reader.js",
         "src/coach.js",
         "src/message-format.js",
@@ -36,7 +41,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Zyncez AI – OpenRouter Settings",
+    "default_title": "Zyncez AI \u2013 OpenRouter Settings",
     "default_popup": "popup.html"
   },
   "background": {

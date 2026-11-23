@@ -217,6 +217,9 @@
     showBattleInfo(state);
     if(mode==='local'){add('bot',window.ZyncezCoach.analyze(q,state,context));return;}
     if(!hasKey){add('bot','Click the Zyncez extension icon in your browser toolbar (or ⚙ here), paste your OpenRouter API key, then click Save settings.');return;}
+    // Local, bounded justification engine runs only for an explicit tactical question;
+    // only a compact evidence-based verdict is passed to the AI, not its score internals.
+    if(window.ZyncezDecision?.isTacticalQuestion(q)) state.decisionSupport=window.ZyncezDecision.analyze(state,q);
     busy=true;sendButton.disabled=true;updateStatus();const waiting=add('bot','Thinking…');
     try {
       const reply=await request({type:'ZYNCEZ_ASK',question:q,state,history:history.slice(-8)});

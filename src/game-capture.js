@@ -30,6 +30,24 @@
     const request=room.request && typeof room.request==='object' ? room.request : null;
     const source=Array.isArray(request?.side?.pokemon) ? request.side.pokemon :
       (Array.isArray(battle.myPokemon)?battle.myPokemon:[]);
+    const getSpeciesTypes=(species,tera='')=>{
+      try {
+        if (tera) return [text(tera,20)];
+        const dex=window.Dex;
+        const id=String(species||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+        const dexMon=dex?.species?.get?.(species)||window.BattlePokedex?.[id];
+        return Array.isArray(dexMon?.types)?dexMon.types.slice(0,2).map(t=>text(t,20)):[];
+      } catch { return []; }
+    };
+    const moveDetails=(move)=>{
+      const name=text(move,70);
+      let info={};
+      try {info=window.Dex?.moves?.get?.(name)||{};} catch {}
+      return {name:text(info.name||name,70),type:text(info.type,20),category:text(info.category,20),
+        basePower:Number.isFinite(info.basePower)?info.basePower:null,
+        accuracy:Number.isFinite(info.accuracy)?info.accuracy:null,
+        priority:Number.isInteger(info.priority)?info.priority:null,target:text(info.target,40)};
+    };
     const roster=source.slice(0,12).map((p, index)=>{
       if(!p||typeof p!=='object') return null;
       const detail=text(p.details,120).split(',')[0];
@@ -39,9 +57,10 @@
       const hp=condition.split(' ')[0]||'';
       const active=!!p.active;
       const status=condition.match(/\b(brn|psn|tox|par|slp|frz|fnt)\b/i)?.[0]||'';
-      return {slot:index+1,name,species:detail||name,active,fainted:/\bfnt\b/i.test(condition),hp,status,moves,
+      return {slot:index+1,name,species:detail||name,types:getSpeciesTypes(detail||name,p.terastallized),active,fainted:/\bfnt\b/i.test(condition),hp,status,moves,
         ability:text(p.ability||p.baseAbility,60),item:text(p.item,60),teraType:text(p.teraType,25),
         speed:Number.isInteger(p?.stats?.spe)&&p.stats.spe>0?p.stats.spe:null,
+        stats:Object.fromEntries(['hp','atk','def','spa','spd','spe'].filter(x=>Number.isInteger(p?.stats?.[x])&&p.stats[x]>0).map(x=>[x,p.stats[x]])),
         level:Number((p.details||'').match(/\bL(\d{1,3})\b/)?.[1])||
           (Number.isInteger(p.level)?p.level:null)};
     }).filter(Boolean);
@@ -55,7 +74,7 @@
       slot:index+1,moves:Array.isArray(a?.moves)?a.moves.slice(0,6).map(m=>({
         name:text(m?.name||m?.id,70),pp:Number.isInteger(m?.pp)?m.pp:null,
         maxpp:Number.isInteger(m?.maxpp)?m.maxpp:null,disabled:!!m?.disabled,target:text(m?.target,40),
-        priority:movePriority(m?.id||m?.name)
+        priority:movePriority(m?.id||m?.name),...moveDetails(m?.id||m?.name)
       })):[]
     })):[];
     const getBaseSpeed=(species)=>{
@@ -71,11 +90,13 @@
       name:text(p.name,65),species:text(p.speciesForme||p.name,65),
       hp:Number.isFinite(p.hp) && Number.isFinite(p.maxhp)&&p.maxhp>0 ?
         `${Math.round(p.hp/p.maxhp*100)}%`:text(p.getHPText?.(),25),
-      status:text(p.status,15),
+      status:text(p.status,15),types:getSpeciesTypes(p.speciesForme||p.name,p.terastallized),
       level:Number.isInteger(p.level)?p.level:100,
       speedStage:Number.isInteger(p.boosts?.spe)?p.boosts.spe:0,
       ability:text(p.ability,60),item:text(p.item,60),
-      baseSpeed:getBaseSpeed(p.speciesForme||p.name)
+      baseSpeed:getBaseSpeed(p.speciesForme||p.name),
+      boosts:Object.fromEntries(['atk','def','spa','spd','spe'].filter(x=>Number.isInteger(p.boosts?.[x])).map(x=>[x,p.boosts[x]])),
+      terastallized:text(p.terastallized,20)
     })):[];
     const knownOpposing=Array.isArray(battle.farSide?.pokemon)?battle.farSide.pokemon.slice(0,12).map(p=>({
       name:text(p?.name,65),species:text(p?.speciesForme||p?.name,65),fainted:!!p?.fainted
@@ -91,11 +112,24 @@
       weather:text(battle.weather,35),
       terrain:pseudo.find(x=>['electricterrain','grassyterrain','mistyterrain','psychicterrain'].includes(x))||'',
       trickRoom:pseudo.includes('trickroom'),
-      tailwind:{mine:hasCondition(battle.nearSide,'tailwind'),opponent:hasCondition(battle.farSide,'tailwind')}
+      tailwind:{mine:hasCondition(battle.nearSide,'tailwind'),opponent:hasCondition(battle.farSide,'tailwind')},
+      screens:{mine:{reflect:hasCondition(battle.nearSide,'reflect'),lightScreen:hasCondition(battle.nearSide,'lightscreen'),auroraVeil:hasCondition(battle.nearSide,'auroraveil')},
+        opponent:{reflect:hasCondition(battle.farSide,'reflect'),lightScreen:hasCondition(battle.farSide,'lightscreen'),auroraVeil:hasCondition(battle.farSide,'auroraveil')}}
     };
     const sideNum=battle.farSide?.n;
+    const opposingRevealedMoveNames=new Set();
+    for(const line of protocol) {
+      const fields=line.split('|');
+      if(fields[1]!=='move')continue;
+      const actor=fields[2]||'';
+      const actorSide=/^(p[1-4])[a-c]?:/.exec(actor)?.[1];
+      if(actorSide===`p${Number(sideNum)+1}`)opposingRevealedMoveNames.add(text(fields[3],70));
+    }
+    const opponentMoveDetails=[...opposingRevealedMoveNames].slice(0,24).map(moveDetails);
     return {
       available:true,roomId:text(room.id,160),myParty:roster,activeMoves,
+      requestType:text(request?.requestType,20),playerTrapped:Array.isArray(request?.active)?request.active.slice(0,3).map(x=>!!x?.trapped):[],
+      opponentMoveDetails,
       myActive:snapSide(battle.nearSide),opponentActive:snapSide(battle.farSide),
       opponentKnown:knownOpposing,battleConditions,opponentSideId:Number.isInteger(sideNum)?`p${sideNum+1}`:'',
       protocol
