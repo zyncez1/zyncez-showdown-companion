@@ -18,7 +18,7 @@ function allowedSender(sender, type) {
     return url.protocol==='https:' && ['play.pokemonshowdown.com','pokemonshowdown.com'].includes(url.hostname);
   } catch { return false; }
 }
-const UI_DEFAULTS=Object.freeze({theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,position:{x:1,y:1}});
+const UI_DEFAULTS=Object.freeze({theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,recommendationStyle:'fancy',position:{x:1,y:1}});
 function uiPreferences(input) {
   const v=input && typeof input==='object'?input:{};
   const oneOf=(key,allowed)=>allowed.includes(v[key])?v[key]:UI_DEFAULTS[key];
@@ -30,6 +30,7 @@ function uiPreferences(input) {
     height:oneOf('height',['short','regular','tall']),
     font:oneOf('font',['small','regular','large']),
     bubble:oneOf('bubble',['small','regular','large']),
+    recommendationStyle:oneOf('recommendationStyle',['fancy','compact','plain']),
     opacity:Number.isInteger(v.opacity)?Math.max(78,Math.min(100,v.opacity)):96,
     position:{x:bounded(v.position?.x,1),y:bounded(v.position?.y,1)}
   };
@@ -102,7 +103,7 @@ async function handle(msg,sender) {
     const s=await chrome.storage.local.get(SETTINGS);
     if (s.zyncezMode==='local') throw new Error('AI mode is off. Enable it in ⚙ Settings.');
     if (!s.zyncezApiKey) throw new Error('Save your OpenRouter API key in ⚙ Settings first.');
-    const answer=await ZyncezAI.askOpenRouter({key:s.zyncezApiKey,model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,question:msg.question,state:msg.state,history:msg.history,preferences:{personality:s.zyncezPersonality,personalityNotes:s.zyncezPersonalityNotes,replyStyle:s.zyncezReplyStyle}});
+    const answer=await ZyncezAI.askOpenRouter({key:s.zyncezApiKey,model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,question:msg.question,state:msg.state,history:msg.history,preferences:{personality:s.zyncezPersonality,personalityNotes:s.zyncezPersonalityNotes,replyStyle:s.zyncezReplyStyle,recommendationStyle:uiPreferences(s.zyncezUiPrefs).recommendationStyle}});
     return {ok:true,answer};
   }
   return {ok:false,error:'Unknown extension action.'};

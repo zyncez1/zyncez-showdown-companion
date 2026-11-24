@@ -221,3 +221,15 @@ test('appearance preferences do not change API key, model, personality or reply 
   assert.equal(state.hasKey,true);
   assert.equal(h.calls.filter(x=>x==='fetch').length,0);
 });
+
+test('recommendation appearance preference defaults to fancy, persists, and never calls OpenRouter on save',async()=>{
+  const h=await createHarness();
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).uiPrefs.recommendationStyle,'fancy');
+  await h.message({type:'ZYNCEZ_SET_UI_PREFS',prefs:{recommendationStyle:'compact'}});
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).uiPrefs.recommendationStyle,'compact');
+  await h.message({type:'ZYNCEZ_SET_UI_PREFS',prefs:{recommendationStyle:'plain'}});
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).uiPrefs.recommendationStyle,'plain');
+  await h.message({type:'ZYNCEZ_SET_UI_PREFS',prefs:{recommendationStyle:'<script>'}});
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).uiPrefs.recommendationStyle,'fancy');
+  assert.equal(h.calls.includes('fetch'),false);
+});

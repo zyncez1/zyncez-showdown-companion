@@ -208,10 +208,13 @@
     if (!validModel(model)) throw new Error('Invalid model ID.');
     const context = JSON.stringify(sanitizeSnapshot(state));
     const prefs = sanitizePreferences(preferences);
+    const cardPrompt = state?.decisionSupport?.status==='evaluated' && preferences?.recommendationStyle!=='plain'
+      ? '\nFor a direct request for the best play, format each chosen action on its own line EXACTLY as ::play {"actor":"Charizard","move":"Flamethrower","target":"Ivysaur"} (no code fences, no bullets). Use the actual current active Pokémon, legal move names and actual target names from the snapshot; use "Switch" as the move and a reserve Pokémon as target for switches. For self moves use "self"; for spread or field effects use the appropriate group or field. For Doubles give one line per chosen action. Only use these markers for your final recommended actions, not examples, alternatives or ordinary chat. Follow with natural reasoning of the selected length; do not repeat the same play in prose. If uncertain or unavailable, answer naturally without markers. The interface renders sprites and move colors; do not write image links or HTML.'
+      : '\nUse normal conversational text, without special battle-card markers.';
     const personalityPrompt = `Personality: ${PERSONALITIES[prefs.personality]}` +
       (prefs.personalityNotes ? `\nPlayer's additional personality preferences: ${prefs.personalityNotes}` : '') +
       `\nResponse length: ${prefs.replyStyle.toUpperCase()}. ${REPLY_STYLES[prefs.replyStyle]}` +
-      '\nSpeak naturally, not in stiff textbook sections. If the player explicitly asks for more or less detail in this message, honor that request.';
+      '\nSpeak naturally, not in stiff textbook sections. If the player explicitly asks for more or less detail in this message, honor that request.' + cardPrompt;
     return {
       model,
       messages:[

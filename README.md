@@ -1,4 +1,4 @@
-# Zyncez AI Battle Companion (v0.16)
+# Zyncez AI Battle Companion (v0.17)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -13,6 +13,10 @@ A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messe
 7. You can manage all settings by **right-clicking the floating bubble or an empty part of the chat** and choosing **Settings & appearance**. The **⋯** menu button is an accessible alternative. The messenger rechecks saved settings when opened or when you send a question.
 
 You only need to paste the key once per browser profile/extension installation. The **model selector now lives beside the typing box**, not above the conversation. **Changing models doesn't fetch a catalog or start an AI request**: presets are included in the extension. You can use a custom or recent model ID via Settings. A listed model may no longer be available or may change price on OpenRouter; the list is offline, not a live pricing guarantee.
+
+## v0.17 — Pokémon-style battle recommendations
+
+Direct tactical requests may now return compact visual action cards with Showdown-hosted static Gen V sprites (40 px, or 28 px in Compact), move type accents, targeting, and switch/ally-safety labels. The model emits a narrowly scoped action marker for its actual final choice; the renderer checks current actors, available moves, targets and switches before styling it. Plain text remains available under right-click Settings → Battle recommendation style. If a model does not emit the marker, the original Markdown reply remains. Missing sprite assets fall back to a neutral icon; no custom image URLs or HTML from the AI are rendered. Sprite artwork is provided by Pokémon Showdown and its contributors; Pokémon assets belong to their respective owners. No additional AI call is made.
 
 ## v0.16 — Invisible battle context
 

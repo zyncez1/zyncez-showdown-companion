@@ -34,6 +34,8 @@
         <label for="zyncez-font">Chat text</label><select id="zyncez-font" data-font><option value="small">Small</option><option value="regular">Normal</option><option value="large">Large</option></select>
         <label for="zyncez-bubble">Chat bubble size</label><select id="zyncez-bubble" data-bubble><option value="small">Small</option><option value="regular">Normal</option><option value="large">Large</option></select>
         <label for="zyncez-opacity">Panel opacity</label><input id="zyncez-opacity" data-opacity type="range" min="78" max="100" step="1" value="96"/>
+        <label for="zyncez-card-style">Battle recommendation style</label><select id="zyncez-card-style" data-card-style><option value="fancy">Fancy Pokémon cards</option><option value="compact">Compact Pokémon cards</option><option value="plain">Plain text</option></select>
+        <p>Cards use small Showdown-hosted sprites for detected Pokémon. Normal conversation stays unchanged.</p>
         <h3>AI & personality</h3>
         <label for="zyncez-mode">Mode</label><select id="zyncez-mode" data-mode><option value="gpt">OpenRouter AI · on Send</option><option value="local">Local commands only</option></select>
         <label for="zyncez-model">Custom OpenRouter model ID</label><input id="zyncez-model" data-model type="text" maxlength="150" spellcheck="false" autocomplete="off" placeholder="provider/model"/>
@@ -59,7 +61,7 @@
   const modeSelect=$('[data-mode]'),modelInput=$('[data-model]'),keyInput=$('[data-key]'),keyStatus=$('[data-key-status]'),saved=$('[data-saved]');
   const personalitySelect=$('[data-personality]'),personalityNotes=$('[data-personality-notes]'),replyStyleSelect=$('[data-reply-style]'),quickLength=$('[data-quick-length]');
   const context={opponentTypes:[]};
-  const UI_DEFAULTS={theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,position:{x:1,y:1}};
+  const UI_DEFAULTS={theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,recommendationStyle:'fancy',position:{x:1,y:1}};
   const ACCENTS={violet:'#8b80ff',blue:'#4b9bff',teal:'#16bca8',rose:'#ed6aa6',amber:'#e8a946'};
   let mode='gpt',hasKey=false,busy=false,history=[],recentIds=[],currentModel='openai/gpt-5-mini',ui={...UI_DEFAULTS},open=false;
 
@@ -90,6 +92,7 @@
     host.style.setProperty('--z-bubble',({small:46,regular:56,large:66}[ui.bubble]||56)+'px');
     host.style.setProperty('--z-panel-bg',rgba(ui.theme,(ui.opacity||96)/100));
     for(const name of ['theme','width','height','font','bubble','opacity'])$(`[data-${name}]`).value=ui[name];
+    $('[data-card-style]').value=ui.recommendationStyle||'fancy';
     renderSwatches();positionFromPrefs();
   }
   function renderSwatches(){
@@ -102,6 +105,8 @@
   function setUI(partial){ui={...ui,...partial};applyUI();saveUI(partial);}
   async function saveUI(prefs){try{const r=await request({type:'ZYNCEZ_SET_UI_PREFS',prefs});if(!r?.ok)throw Error(r?.error);}catch{saved.textContent='Could not save appearance settings.';}}
   for(const key of ['theme','width','height','font','bubble','opacity'])$(`[data-${key}]`).addEventListener('change',e=>setUI({[key]:key==='opacity'?Number(e.target.value):e.target.value}));
+
+  $('[data-card-style]').addEventListener('change',e=>setUI({recommendationStyle:e.target.value}));
 
   function toggle(force){open=typeof force==='boolean'?force:!open;panel.classList.toggle('is-open',open);panel.setAttribute('aria-hidden',String(!open));launcher.classList.toggle('open',open);launcher.setAttribute('aria-expanded',String(open));hideMenus();if(open){loadSettings();input.focus();positionFromPrefs();}}
   function hideMenus(){menu.hidden=true;modelPicker.hidden=true;modelTrigger.setAttribute('aria-expanded','false');}
@@ -170,7 +175,7 @@
     }catch{/* graceful DOM fallback */}
     const fallback=window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});fallback.speedAnalysis=window.ZyncezSpeed.analyze(fallback);return fallback;
   }
-  function setBubbleText(bubble,text,format=true){if(format && bubble.classList.contains('bot') && window.ZyncezFormat?.renderMarkdown)bubble.replaceChildren(window.ZyncezFormat.renderMarkdown(text));else bubble.textContent=text;messages.scrollTop=messages.scrollHeight;}
+  function setBubbleText(bubble,text,format=true,state=null){if(format && bubble.classList.contains('bot') && window.ZyncezFormat?.renderMarkdown)bubble.replaceChildren(state&&window.ZyncezCards?window.ZyncezCards.render(text,state,ui.recommendationStyle,window.ZyncezFormat.renderMarkdown):window.ZyncezFormat.renderMarkdown(text));else bubble.textContent=text;messages.scrollTop=messages.scrollHeight;}
   function add(who,txt){if(empty?.isConnected)empty.remove();const bubble=document.createElement('div');bubble.className='bubble '+who;messages.appendChild(bubble);setBubbleText(bubble,txt,who==='bot');return bubble;}
   function updateStatus(){status.textContent=busy?'Thinking…':mode==='local'?'Local mode · idle':hasKey?'Ready when you are':'Add API key · right-click for settings';keyStatus.textContent=hasKey?'✓ Key saved locally. Leave blank to keep it.':'No API key saved yet.';}
   async function loadSettings(){
@@ -209,7 +214,7 @@
     busy=true;sendButton.disabled=true;updateStatus();const pending=add('bot','Thinking…');
     try{
       const reply=await request({type:'ZYNCEZ_ASK',question:q,state,history:history.slice(-8)});
-      if(reply?.ok&&reply.answer){setBubbleText(pending,reply.answer,true);history.push({role:'user',content:q},{role:'assistant',content:reply.answer});history=history.slice(-12);}
+      if(reply?.ok&&reply.answer){setBubbleText(pending,reply.answer,true,state);history.push({role:'user',content:q},{role:'assistant',content:window.ZyncezCards.plainText(reply.answer)});history=history.slice(-12);}
       else setBubbleText(pending,'AI connection: '+(reply?.error||'Unknown error.'),false);
     }catch(error){setBubbleText(pending,'AI connection: '+(error?.message||'Request failed.'),false);}
     finally{busy=false;sendButton.disabled=false;updateStatus();input.focus();}
