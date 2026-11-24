@@ -1,231 +1,229 @@
+/* Minimal in-page messenger: user-initiated AI only, with a movable bubble and offline model picker. */
 (() => {
   'use strict';
   if (document.getElementById('zyncez-companion-host')) return;
   const host=document.createElement('div');host.id='zyncez-companion-host';
-  host.style.cssText='position:fixed;right:20px;bottom:20px;z-index:2147483647;pointer-events:none';
+  host.style.cssText='position:fixed;left:20px;top:20px;width:56px;height:56px;z-index:2147483647;pointer-events:none';
   const shadow=host.attachShadow({mode:'closed'});
-  document.documentElement.appendChild(host);
-  const styles=document.createElement('style');styles.textContent=`
-    *{box-sizing:border-box} .launcher,.panel{pointer-events:auto;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
-    .launcher{display:block;margin-left:auto;width:58px;height:58px;border:0;border-radius:50%;background:#6155df;color:white;font-size:25px;box-shadow:0 6px 24px #12132a77;cursor:pointer}
-    .panel{width:min(420px,calc(100vw - 24px));height:min(610px,calc(100vh - 90px));background:#151827;color:#f4f4ff;border:1px solid #444766;border-radius:16px;box-shadow:0 12px 48px #0009;display:flex;flex-direction:column;overflow:hidden;margin-bottom:10px}
-    .hidden{display:none!important}.header{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;background:#242640;border-bottom:1px solid #41435c;user-select:none}
-    .title{font-weight:750;font-size:15px}.sub{font-size:11px;color:#bbbcdc}.controls{display:flex;gap:6px}.controls button,.settings button{border:1px solid #545775;border-radius:8px;background:#343651;color:white;padding:5px 8px;cursor:pointer}
-    .modelbar{pointer-events:auto;display:flex;align-items:center;gap:7px;padding:8px 12px;background:#1d2035;border-bottom:1px solid #41435c;font-size:11px}
-    .modelbar label{color:#b6bfe4;white-space:nowrap}.modelbar select{min-width:0;flex:1;appearance:auto;border-radius:7px;background:#292d49;border:1px solid #545775;color:white;padding:7px;font-size:11px}
-    .modelbar button{white-space:nowrap;border:1px solid #545775;background:#353958;color:#fff;border-radius:7px;padding:7px;cursor:pointer}
-    .lengthbar{pointer-events:auto;display:flex;align-items:center;gap:9px;padding:6px 12px;background:#1b2035;border-bottom:1px solid #41435c;font-size:11px}
-    .lengthbar label{color:#c1c9ef;white-space:nowrap}.lengthbar select{flex:1;min-width:0;padding:5px 8px;border:1px solid #545775;border-radius:7px;background:#292d49;color:#fff;font:inherit;cursor:pointer}
-    .picker{pointer-events:auto;max-height:240px;padding:10px;background:#20243c;border-bottom:1px solid #525675;display:flex;flex-direction:column;gap:7px}
-    .picker-controls{display:flex;gap:7px;align-items:center}.picker input[type=search]{min-width:0;flex:1;padding:9px;background:#282c49;border:1px solid #545775;color:white;border-radius:8px}
-    .picker label{font-size:11px;color:#bfc6e8;white-space:nowrap}.picker input[type=checkbox]{accent-color:#7665f8}
-    .picker-info{font-size:10px;color:#c0c5df}.picker-results{overflow-y:auto;display:flex;flex-direction:column;gap:5px}
-    .picker-result{background:#2a2d4b;border:1px solid #4c5077;color:white;border-radius:7px;text-align:left;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
-    .picker-result:hover{background:#3a3e69}.picker-result strong{font-size:11px}.picker-result small{font-size:10px;color:#bfc5e4;overflow-wrap:anywhere}
-    .battle-info{padding:8px 12px;font-size:11px;color:#d4ddff;background:#232945;border-bottom:1px solid #424964;line-height:1.45;overflow-wrap:anywhere}
-    .messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;overflow-wrap:anywhere}
-    .bubble{border-radius:13px;padding:10px 12px;font-size:14px;line-height:1.55;max-width:94%;white-space:normal}.bot{background:#292c45;align-self:flex-start}.user{background:#5145b8;align-self:flex-end;white-space:pre-wrap}
-    .bubble p{margin:0 0 9px}.bubble p:last-child{margin-bottom:0}
-    .bubble strong{color:#fff;font-weight:750}.bubble em{font-style:italic;color:#e7dfff}
-    .bubble h1,.bubble h2,.bubble h3{color:#fff;font-size:14px;line-height:1.35;margin:13px 0 7px;font-weight:800}
-    .bubble h1:first-child,.bubble h2:first-child,.bubble h3:first-child{margin-top:0}
-    .bubble h1{font-size:17px}.bubble h2{font-size:15px}
-    .bubble mark{background:#f7d86e;color:#211a1d;padding:0 3px;border-radius:3px}
-    .bubble ul,.bubble ol{margin:4px 0 10px;padding-left:22px}.bubble li{margin:4px 0}.bubble li:last-child{margin-bottom:0}
-    .bubble code{background:#171a2b;color:#a9e7fa;border-radius:4px;padding:1px 4px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
-    .bubble pre{overflow:auto;background:#141827;border:1px solid #444863;padding:10px;border-radius:9px;margin:7px 0 10px;white-space:pre}
-    .bubble pre code{background:transparent;padding:0;color:#dfe9ff}
-    .bubble blockquote{margin:8px 0;padding:3px 0 3px 12px;border-left:3px solid #8b7aff;color:#d6d9f0}
-    .bubble a{color:#a9cbff;text-decoration:underline}.bubble hr{border:0;border-top:1px solid #535875;margin:12px 0}
-    .footer{padding:9px;border-top:1px solid #41435c;display:flex;gap:7px}.footer input{background:#24263c;border:1px solid #525570;border-radius:9px;color:#fff;padding:10px;flex:1;min-width:0;outline-offset:2px}
-    .send{background:#6658ea;border:0;color:white;border-radius:9px;padding:0 13px;font-weight:700;cursor:pointer}.send:disabled{opacity:.5}.hint{font-size:10px;padding:0 12px 9px;color:#a9abc6}
-    .settings{padding:13px;border-bottom:1px solid #41435c;background:#1e2035;font-size:12px;line-height:1.5;overflow-y:auto;max-height:65%}.settings label{display:block;margin:4px 0}.settings select,.settings input{display:block;width:100%;margin:5px 0 10px;padding:9px;background:#282a45;border:1px solid #545775;border-radius:8px;color:white}
-    .settings textarea{display:block;width:100%;resize:vertical;min-height:72px;max-height:170px;margin:5px 0 8px;padding:9px;border-radius:8px;background:#282a45;border:1px solid #545775;color:#fff;font:inherit;font-size:12px;line-height:1.4}
-    .settings p{font-size:11px;color:#c6c8e0;margin:8px 0}.settings a{color:#b6c8ff}.settings .actions{display:flex;gap:7px;align-items:center}.settings .save{background:#6155df;padding:8px 12px}.settings .remove{padding:8px 12px}.message-status{min-height:16px}
-    button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #a9baff;outline-offset:2px}`;
+  const styles=document.createElement('style');styles.textContent=window.ZyncezChatStyles || '';
   shadow.appendChild(styles);
-  const panel=document.createElement('section');panel.className='panel hidden';panel.setAttribute('aria-label','Zyncez AI chat');
+  const panel=document.createElement('section');panel.className='panel';panel.setAttribute('aria-label','Zyncez companion chat');panel.setAttribute('aria-hidden','true');
   panel.innerHTML=`
-    <div class="header"><div><div class="title">⚡ Zyncez AI Companion</div><div class="sub" data-status>Checking settings…</div></div>
-      <div class="controls"><button type="button" data-settings title="AI settings">⚙</button><button type="button" data-refresh title="Read battle status locally">↻</button><button type="button" data-clear title="Clear chat">Clear</button><button type="button" data-close title="Minimize">−</button></div></div>
-    <div class="modelbar"><label for="zyncez-quick-model">AI model</label><select id="zyncez-quick-model" data-quick-model aria-label="Quick switch AI model"></select><button type="button" data-browse-models title="Search all available OpenRouter models">Browse</button></div>
-    <div class="lengthbar"><label for="zyncez-quick-length">Reply length</label><select id="zyncez-quick-length" data-quick-length aria-label="Choose reply length"><option value="short">Short · just talk</option><option value="medium">Medium · a little more</option><option value="long">Long · full details</option></select></div>
-    <div class="picker hidden" data-model-picker>
-      <div class="picker-controls"><input data-model-search type="search" placeholder="Search models…" aria-label="Search OpenRouter models"><label><input type="checkbox" data-free-only> Free only</label></div>
-      <div data-model-count class="picker-info" aria-live="polite">Click Browse to load models.</div><div class="picker-results" data-model-results role="list"></div>
-    </div>
-    <div class="settings hidden" data-settings-pane>
-      <label for="zyncez-mode">Chat mode</label>
-      <select id="zyncez-mode" data-mode><option value="gpt">OpenRouter AI (on Send only)</option><option value="local">Local commands (free)</option></select>
-      <label for="zyncez-model">OpenRouter model ID</label>
-      <input id="zyncez-model" data-model type="text" maxlength="150" autocomplete="off" spellcheck="false" value="openai/gpt-5-mini"/>
-      <label for="zyncez-key">Your OpenRouter API key</label>
-      <input id="zyncez-key" data-key type="password" maxlength="512" autocomplete="off" spellcheck="false" placeholder="Paste your sk-or-… key here"/>
-      <p data-key-status>No key saved yet.</p>
-      <label for="zyncez-personality">Companion personality</label>
-      <select id="zyncez-personality" data-personality>
-        <option value="friendly">Friendly gaming buddy</option><option value="coach">Competitive Pokémon coach</option>
-        <option value="hype">Excited / playful teammate</option><option value="calm">Calm and relaxed</option>
-        <option value="custom">Custom personality</option>
-      </select>
-      <label for="zyncez-notes">Custom personality instructions (optional)</label>
-      <textarea id="zyncez-notes" data-personality-notes maxlength="1600" rows="3" placeholder="Example: Talk like a close gaming friend; joke with me and explain your reasoning without boring reports."></textarea>
-      <label for="zyncez-reply-style">Response length</label>
-      <select id="zyncez-reply-style" data-reply-style><option value="short">Short — quick, natural replies</option><option value="medium">Medium — a little explanation</option><option value="long">Long — full details</option></select>
-      <div class="actions"><button type="button" class="save" data-save>Save settings</button><button type="button" class="remove" data-remove>Remove key</button></div>
-      <p class="message-status" data-saved></p>
-      <p><a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer noopener">Get an OpenRouter API key</a>. A saved key stays in this browser profile, not in your ZIP or Git repo. Anyone with access to your browser profile may be able to recover it. API usage can cost money.</p>
-    </div>
-    <div class="battle-info" data-battle-info>Battle not scanned yet. Ask a question or press ↻.</div>
-    <div class="messages" role="log" aria-live="polite"></div>
-    <form class="footer"><input type="text" maxlength="700" autocomplete="off" aria-label="Message Zyncez" placeholder="Ask anything about your battle..."/><button type="submit" class="send">Send</button></form>
-    <div class="hint">OpenRouter is contacted only when you press Send. ↻ reads locally. No automatic moves. Follow tournament rules.</div>`;
-  const launcher=document.createElement('button');launcher.className='launcher';launcher.type='button';launcher.setAttribute('aria-label','Toggle Zyncez companion');launcher.textContent='⚡';
-  shadow.append(panel,launcher);
-  const messages=panel.querySelector('.messages'),input=panel.querySelector('.footer input'),sendButton=panel.querySelector('.send'),status=panel.querySelector('[data-status]');
-  const settingsPane=panel.querySelector('[data-settings-pane]'),modeSelect=panel.querySelector('[data-mode]'),modelInput=panel.querySelector('[data-model]'),keyInput=panel.querySelector('[data-key]');
-  const keyStatus=panel.querySelector('[data-key-status]'),saved=panel.querySelector('[data-saved]');
-  const personalitySelect=panel.querySelector('[data-personality]'), personalityNotes=panel.querySelector('[data-personality-notes]'), replyStyleSelect=panel.querySelector('[data-reply-style]'), quickLength=panel.querySelector('[data-quick-length]');
-  const quickModel=panel.querySelector('[data-quick-model]'),modelPicker=panel.querySelector('[data-model-picker]');
-  const browseButton=panel.querySelector('[data-browse-models]'),modelSearch=panel.querySelector('[data-model-search]');
-  const freeOnly=panel.querySelector('[data-free-only]'),modelResults=panel.querySelector('[data-model-results]'),modelCount=panel.querySelector('[data-model-count]');
-  const battleInfo=panel.querySelector('[data-battle-info]');
-  async function readCurrentState() {
-    const base=window.ZyncezReader.read();
-    try {
-      const r=await request({type:'ZYNCEZ_READ_GAME',roomId:base.roomId||''});
-      if(r?.ok) {
-        const state=window.ZyncezBattleState.enrichState(base,r.game);
-        state.speedAnalysis=window.ZyncezSpeed.analyze(state);
-        return state;
-      }
-    } catch { /* The DOM reader remains a fallback if game data is inaccessible. */ }
-    const fallback=window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});
-    fallback.speedAnalysis=window.ZyncezSpeed.analyze(fallback);
-    return fallback;
-  }
-  function showBattleInfo(state) {
-    if(!state.battleFound && state.gameReadStatus!=='connected'){battleInfo.textContent='No battle detected in the current Showdown room.';return;}
-    const active=state.opponentActive.map(p=>p.species||p.name).join(' + ') || 'not detected';
-    const seen=state.opponentRevealed.map(p=>p.species).join(', ') || 'none yet';
-    const team=state.myParty?.length ? ` | Your party: ${state.myParty.map(p=>p.species+(p.moves?.length?` (${p.moves.length} moves)`:' (moves unknown)')).join(', ')}` : ' | Party moves unavailable';
-    const recorded=state.opponentMovesSeen?.reduce((n,p)=>n+p.moves.length,0)||0;
-    const speed=state.speedAnalysis?.matchups||[];
-    const likely=speed.filter(x=>x.order==='before').length;
-    const note=speed.length?` | Speed: ${likely}/${speed.length} same-priority matchups ahead of the standard opponent Speed range (uncertain modifiers apply)`:'';
-    battleInfo.textContent=`Opponent active: ${active} | Revealed: ${seen}${state.opponentUnknownSlots ? ` | Hidden slots: ${state.opponentUnknownSlots}` : ''}${team} | Opponent moves seen: ${recorded}${note}`;
-  }
+    <header class="head" data-drag-header>
+      <div class="brand"><span class="brand-badge">✦</span><div class="brand-copy"><div class="brand-title">Zyncez AI</div><div class="brand-status" data-status>Ready when you are</div></div></div>
+      <button type="button" class="icon-button" data-refresh title="Read battle locally" aria-label="Refresh battle information">↻</button>
+      <button type="button" class="icon-button" data-menu-button title="Menu (or right-click the chat)" aria-label="Open chat menu">⋯</button>
+    </header>
+    <div class="messages" role="log" aria-live="polite"><div class="empty" data-empty><span class="empty-icon">✦</span>Ask about your battle whenever you need me.</div></div>
+    <details class="battle-details" data-battle-details><summary data-battle-summary>Battle details · on demand</summary><div data-battle-info>Ask a question or press ↻ to read your battle.</div></details>
+    <form class="composer"><textarea rows="1" maxlength="900" autocomplete="off" aria-label="Message Zyncez" placeholder="Message Zyncez…"></textarea>
+      <div class="composer-bottom">
+        <button type="button" class="model-trigger" data-model-trigger aria-haspopup="listbox" aria-expanded="false" title="Switch model instantly"><span class="model-label" data-model-label>GPT-5 Mini</span><span class="chevron">⌄</span></button>
+        <select data-quick-length aria-label="Response length" title="Reply length"><option value="short">Short</option><option value="medium">Medium</option><option value="long">Long</option></select>
+        <button type="submit" class="send" aria-label="Send message" title="Send (Enter)">↑</button>
+      </div>
+    </form>
+    <div class="model-menu" data-model-picker role="listbox" aria-label="Choose AI model" hidden><div class="menu-heading">Choose a model · instant</div><div data-model-options></div><div class="model-foot">Built-in list · availability and price may change. Custom IDs in Settings.</div></div>
+    <section class="settings-screen" data-settings-pane hidden aria-label="Zyncez settings">
+      <div class="settings-head"><span>Settings</span><button type="button" class="icon-button" data-settings-close aria-label="Back to chat">×</button></div>
+      <div class="settings-body">
+        <h3>Appearance</h3>
+        <label for="zyncez-theme">Theme</label><select id="zyncez-theme" data-theme><option value="midnight">Midnight</option><option value="frost">Frosted glass</option><option value="light">Light</option></select>
+        <label>Accent color</label><div class="color-options" data-colors aria-label="Accent color"></div>
+        <label for="zyncez-width">Window width</label><select id="zyncez-width" data-width><option value="compact">Compact</option><option value="regular">Comfortable</option><option value="wide">Wide</option></select>
+        <label for="zyncez-height">Window height</label><select id="zyncez-height" data-height><option value="short">Short</option><option value="regular">Comfortable</option><option value="tall">Tall</option></select>
+        <label for="zyncez-font">Chat text</label><select id="zyncez-font" data-font><option value="small">Small</option><option value="regular">Normal</option><option value="large">Large</option></select>
+        <label for="zyncez-bubble">Chat bubble size</label><select id="zyncez-bubble" data-bubble><option value="small">Small</option><option value="regular">Normal</option><option value="large">Large</option></select>
+        <label for="zyncez-opacity">Panel opacity</label><input id="zyncez-opacity" data-opacity type="range" min="78" max="100" step="1" value="96"/>
+        <h3>AI & personality</h3>
+        <label for="zyncez-mode">Mode</label><select id="zyncez-mode" data-mode><option value="gpt">OpenRouter AI · on Send</option><option value="local">Local commands only</option></select>
+        <label for="zyncez-model">Custom OpenRouter model ID</label><input id="zyncez-model" data-model type="text" maxlength="150" spellcheck="false" autocomplete="off" placeholder="provider/model"/>
+        <label for="zyncez-key">OpenRouter API key</label><input id="zyncez-key" data-key type="password" maxlength="512" spellcheck="false" autocomplete="off" placeholder="Paste key to add or replace"/>
+        <p data-key-status>Your key stays in your browser profile.</p>
+        <label for="zyncez-personality">Personality</label><select id="zyncez-personality" data-personality><option value="friendly">Friendly gaming buddy</option><option value="coach">Competitive coach</option><option value="hype">Playful teammate</option><option value="calm">Calm and relaxed</option><option value="custom">Custom</option></select>
+        <label for="zyncez-notes">Custom instructions</label><textarea id="zyncez-notes" data-personality-notes rows="3" maxlength="1600" placeholder="Speak like a friend, keep it casual…"></textarea>
+        <label for="zyncez-reply-style">Reply length</label><select id="zyncez-reply-style" data-reply-style><option value="short">Short</option><option value="medium">Medium</option><option value="long">Long</option></select>
+        <div class="settings-actions"><button type="button" class="primary" data-save>Save settings</button><button type="button" class="danger" data-remove>Remove API key</button></div>
+        <p class="settings-feedback" data-saved role="status"></p>
+        <p>Right-click the chat for this menu anytime. Drag the floating bubble to move the whole window. The AI only runs when you send a message. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Get a key</a>.</p>
+      </div>
+    </section>`;
+  const launcher=document.createElement('button');launcher.className='launcher';launcher.type='button';launcher.setAttribute('aria-label','Open Zyncez chat; drag to move; right-click for settings');launcher.setAttribute('aria-expanded','false');launcher.title='Click to chat · drag to move · right-click for settings';
+  launcher.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2-2.6 8H3l7 4-1.5 8 8.4-11H13l-1-9Z"/></svg>';
+  const menu=document.createElement('div');menu.className='context-menu';menu.hidden=true;
+  menu.innerHTML='<button type="button" data-open-settings>⚙ &nbsp; Settings & appearance</button><button type="button" data-menu-clear>✧ &nbsp; Clear chat</button><hr><button type="button" data-menu-reset>↺ &nbsp; Reset position</button>';
+  shadow.append(panel,launcher,menu);
+
+  const $=selector=>panel.querySelector(selector);
+  const messages=$('.messages'),empty=$('[data-empty]'),input=$('.composer textarea'),sendButton=$('.send'),status=$('[data-status]');
+  const settingsPane=$('[data-settings-pane]'),modelPicker=$('[data-model-picker]'),modelTrigger=$('[data-model-trigger]'),modelOptions=$('[data-model-options]'),modelLabel=$('[data-model-label]');
+  const modeSelect=$('[data-mode]'),modelInput=$('[data-model]'),keyInput=$('[data-key]'),keyStatus=$('[data-key-status]'),saved=$('[data-saved]');
+  const personalitySelect=$('[data-personality]'),personalityNotes=$('[data-personality-notes]'),replyStyleSelect=$('[data-reply-style]'),quickLength=$('[data-quick-length]');
+  const battleInfo=$('[data-battle-info]'),battleSummary=$('[data-battle-summary]');
   const context={opponentTypes:[]};
-  let mode='gpt',hasKey=false,busy=false,history=[],catalog=null,recentIds=[];
-  function setBubbleText(bubble, text, formatted = true) {
-    if (formatted && bubble.classList.contains('bot') && window.ZyncezFormat?.renderMarkdown) {
-      bubble.replaceChildren(window.ZyncezFormat.renderMarkdown(text));
-    } else bubble.textContent = text;
-    messages.scrollTop=messages.scrollHeight;
+  const UI_DEFAULTS={theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,position:{x:1,y:1}};
+  const ACCENTS={violet:'#8b80ff',blue:'#4b9bff',teal:'#16bca8',rose:'#ed6aa6',amber:'#e8a946'};
+  let mode='gpt',hasKey=false,busy=false,history=[],recentIds=[],currentModel='openai/gpt-5-mini',ui={...UI_DEFAULTS},open=false;
+
+  function request(msg){return chrome.runtime.sendMessage(msg);}
+  function positionAt(x,y,persist=false){
+    const size=parseFloat(getComputedStyle(launcher).width)||56;
+    const maxX=Math.max(8,innerWidth-size-8),maxY=Math.max(8,innerHeight-size-8);
+    const px=Math.min(maxX,Math.max(8,x)),py=Math.min(maxY,Math.max(8,y));
+    host.style.left=px+'px';host.style.top=py+'px';
+    host.style.width=size+'px';host.style.height=size+'px';
+    const width=panel.getBoundingClientRect().width || 400;
+    const height=panel.getBoundingClientRect().height || 550;
+    panel.classList.toggle('align-left',px+size<width+8);
+    panel.classList.toggle('below',py<height+size+23 && innerHeight-py-size>py-size);
+    if(persist){ui.position={x:Math.max(0,Math.min(1,(px-8)/Math.max(1,maxX-8))),y:Math.max(0,Math.min(1,(py-8)/Math.max(1,maxY-8)))};saveUI({position:ui.position});}
   }
-  function add(who,txt){const bubble=document.createElement('div');bubble.className='bubble '+who;setBubbleText(bubble,txt,who==='bot');messages.appendChild(bubble);messages.scrollTop=messages.scrollHeight;return bubble;}
-  function updateStatus(){status.textContent=busy?'AI · thinking…':mode==='local'?'Local · idle':hasKey?'OpenRouter · ready when you ask':'AI · add key in browser toolbar or ⚙';keyStatus.textContent=hasKey?'✓ API key saved in this browser. Leave the box blank to keep it.':'No OpenRouter API key saved yet.';}
-  async function request(message) {return await chrome.runtime.sendMessage(message);}
-  function renderRecent(current) {
-    quickModel.replaceChildren();
-    for (const id of [...new Set([current,...recentIds,'openai/gpt-5-mini'])].filter(Boolean).slice(0,8)) {
-      const option=document.createElement('option');option.value=id;option.textContent=id;quickModel.appendChild(option);
+  function positionFromPrefs(){
+    const size=parseFloat(getComputedStyle(launcher).width)||56;
+    positionAt(8+ui.position.x*Math.max(0,innerWidth-size-16),8+ui.position.y*Math.max(0,innerHeight-size-16));
+  }
+  function rgba(theme,alpha){return theme==='light'?`rgba(253,253,255,${alpha})`:theme==='frost'?`rgba(23,30,51,${Math.max(.74,alpha-.09)})`:`rgba(18,21,34,${alpha})`;}
+  function applyUI(){
+    host.dataset.theme=ui.theme;
+    host.style.setProperty('--z-accent',ACCENTS[ui.accent]||ACCENTS.violet);
+    host.style.setProperty('--z-width',({compact:335,regular:400,wide:475}[ui.width]||400)+'px');
+    host.style.setProperty('--z-height',({short:430,regular:610,tall:730}[ui.height]||610)+'px');
+    host.style.setProperty('--z-font',({small:12,regular:14,large:16}[ui.font]||14)+'px');
+    host.style.setProperty('--z-bubble',({small:46,regular:56,large:66}[ui.bubble]||56)+'px');
+    host.style.setProperty('--z-panel-bg',rgba(ui.theme,(ui.opacity||96)/100));
+    for(const name of ['theme','width','height','font','bubble','opacity'])$(`[data-${name}]`).value=ui[name];
+    renderSwatches();positionFromPrefs();
+  }
+  function renderSwatches(){
+    const colors=$('[data-colors]');colors.replaceChildren();
+    for(const [name,hex] of Object.entries(ACCENTS)){
+      const btn=document.createElement('button');btn.className='swatch'+(ui.accent===name?' selected':'');btn.type='button';btn.title=name;btn.setAttribute('aria-label',name+' accent');btn.setAttribute('aria-pressed',String(ui.accent===name));btn.style.background=hex;btn.textContent=ui.accent===name?'✓':'';
+      btn.addEventListener('click',()=>setUI({accent:name}));colors.appendChild(btn);
     }
-    quickModel.value=current;
   }
-  function renderCatalog() {
-    if (!catalog) return;
-    const query=modelSearch.value.toLowerCase().trim();
-    const found=catalog.filter(x=>(!freeOnly.checked||x.free) && (!query||`${x.id} ${x.name}`.toLowerCase().includes(query)));
-    modelCount.textContent=`${found.length} matches${found.length>50?' · showing first 50':''}. Prices from OpenRouter.`;
-    modelResults.replaceChildren();
-    for (const m of found.slice(0,50)) {
-      const button=document.createElement('button');button.type='button';button.className='picker-result';
-      const name=document.createElement('strong');name.textContent=m.name;
-      const id=document.createElement('small');id.textContent=m.id;
-      const price=document.createElement('small');price.textContent=m.free?'Free':m.promptPerMillion==null?'Pricing unavailable':`$${m.promptPerMillion} in / $${m.completionPerMillion} out per 1M tokens`;
-      button.append(name,id,price);
-      button.addEventListener('click',()=>selectModel(m.id));modelResults.appendChild(button);
+  function setUI(partial){ui={...ui,...partial};applyUI();saveUI(partial);}
+  async function saveUI(prefs){try{const r=await request({type:'ZYNCEZ_SET_UI_PREFS',prefs});if(!r?.ok)throw Error(r?.error);}catch{saved.textContent='Could not save appearance settings.';}}
+  for(const key of ['theme','width','height','font','bubble','opacity'])$(`[data-${key}]`).addEventListener('change',e=>setUI({[key]:key==='opacity'?Number(e.target.value):e.target.value}));
+
+  function toggle(force){open=typeof force==='boolean'?force:!open;panel.classList.toggle('is-open',open);panel.setAttribute('aria-hidden',String(!open));launcher.classList.toggle('open',open);launcher.setAttribute('aria-expanded',String(open));hideMenus();if(open){loadSettings();input.focus();positionFromPrefs();}}
+  function hideMenus(){menu.hidden=true;modelPicker.hidden=true;modelTrigger.setAttribute('aria-expanded','false');}
+  function openSettings(){hideMenus();if(!open)toggle(true);settingsPane.hidden=false;setTimeout(()=>$('[data-theme]').focus(),0);}
+  function closeSettings(){settingsPane.hidden=true;input.focus();}
+  function showContext(x,y){hideMenus();menu.hidden=false;menu.style.left=Math.max(6,Math.min(innerWidth-200,x))+'px';menu.style.top=Math.max(6,Math.min(innerHeight-146,y))+'px';}
+  launcher.addEventListener('contextmenu',e=>{e.preventDefault();showContext(e.clientX,e.clientY)});
+  panel.addEventListener('contextmenu',e=>{if(e.target.closest('input,textarea,select,a'))return;e.preventDefault();showContext(e.clientX,e.clientY)});
+  $('[data-menu-button]').addEventListener('click',e=>{const box=e.currentTarget.getBoundingClientRect();showContext(box.right-188,box.bottom+6)});
+  menu.querySelector('[data-open-settings]').addEventListener('click',openSettings);
+  menu.querySelector('[data-menu-reset]').addEventListener('click',()=>{hideMenus();setUI({position:{x:1,y:1}})});
+  menu.querySelector('[data-menu-clear]').addEventListener('click',()=>{hideMenus();messages.replaceChildren();history=[];context.opponentTypes=[];add('bot','Chat cleared. What’s up?')});
+  $('[data-settings-close]').addEventListener('click',closeSettings);
+  shadow.addEventListener('pointerdown',e=>{if(!menu.hidden && !menu.contains(e.target) && !e.target.closest('[data-menu-button]'))menu.hidden=true;if(!modelPicker.hidden && !modelPicker.contains(e.target) && !modelTrigger.contains(e.target))closeModels();});
+  document.addEventListener('pointerdown',e=>{if(!host.contains(e.target)){hideMenus();}},true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!settingsPane.hidden)closeSettings();else if(!menu.hidden||!modelPicker.hidden)hideMenus();else if(open)toggle(false);}});
+
+  // Move by the floating bubble (or the chat title bar). Click without moving to toggle.
+  function attachDrag(node,toggleOnClick){
+    let start=null;
+    node.addEventListener('pointerdown',e=>{
+      if(e.button!==0 || (node!==launcher && e.target.closest('button,input,select,textarea,a')))return;
+      start={id:e.pointerId,x:e.clientX,y:e.clientY,left:parseFloat(host.style.left),top:parseFloat(host.style.top),moved:false};
+      node.setPointerCapture?.(e.pointerId);if(e.cancelable)e.preventDefault();
+    });
+    node.addEventListener('pointermove',e=>{
+      if(!start||e.pointerId!==start.id)return;
+      const dx=e.clientX-start.x,dy=e.clientY-start.y;
+      if(Math.hypot(dx,dy)>6)start.moved=true;
+      if(start.moved){launcher.classList.add('dragging');positionAt(start.left+dx,start.top+dy);}
+    });
+    const finish=e=>{
+      if(!start||e.pointerId!==start.id)return;
+      const moved=start.moved;start=null;launcher.classList.remove('dragging');
+      if(moved)positionAt(parseFloat(host.style.left),parseFloat(host.style.top),true);
+      else if(toggleOnClick)toggle();
+    };
+    node.addEventListener('pointerup',finish);node.addEventListener('pointercancel',()=>{start=null;launcher.classList.remove('dragging')});
+  }
+  attachDrag(launcher,true);attachDrag($('[data-drag-header]'),false);
+  window.addEventListener('resize',()=>positionFromPrefs(),{passive:true});
+
+  function renderModels(){
+    modelOptions.replaceChildren();
+    for(const m of window.ZyncezModels.offlineOptions(currentModel,recentIds)){
+      const btn=document.createElement('button');btn.type='button';btn.className='model-option'+(m.id===currentModel?' selected':'');btn.setAttribute('role','option');btn.setAttribute('aria-selected',String(m.id===currentModel));
+      const info=document.createElement('span'),title=document.createElement('strong'),subtitle=document.createElement('small');title.textContent=m.name;subtitle.textContent=m.provider;info.append(title,subtitle);
+      const check=document.createElement('b');check.className='selected-mark';check.textContent=m.id===currentModel?'✓':'';btn.append(info,check);
+      btn.addEventListener('click',()=>selectModel(m.id));modelOptions.appendChild(btn);
     }
-    if (!found.length) modelResults.textContent='No matching models. Try another search.';
+    modelLabel.textContent=window.ZyncezModels.offlineOptions(currentModel,recentIds).find(m=>m.id===currentModel)?.name||currentModel;
   }
-  async function selectModel(id) {
-    const previous=quickModel.value;
-    try {
-      const r=await request({type:'ZYNCEZ_SET_MODEL',model:id});
-      if (!r?.ok) throw new Error(r?.error||'Could not change model.');
-      recentIds=r.recentModels||[];renderRecent(r.model);modelInput.value=r.model;
-      modelPicker.classList.add('hidden');browseButton.textContent='Browse';
-      saved.textContent=`Now using ${r.model}.`;updateStatus();
-    } catch(error) {renderRecent(previous);saved.textContent=error.message;}
+  function closeModels(){modelPicker.hidden=true;modelTrigger.setAttribute('aria-expanded','false');}
+  modelTrigger.addEventListener('click',()=>{const show=modelPicker.hidden;hideMenus();if(show){renderModels();modelPicker.hidden=false;modelTrigger.setAttribute('aria-expanded','true');}});
+  async function selectModel(id){
+    const previous=currentModel;currentModel=id;renderModels();closeModels();
+    try{const r=await request({type:'ZYNCEZ_SET_MODEL',model:id});if(!r?.ok)throw Error(r?.error||'Could not save model.');currentModel=r.model;recentIds=r.recentModels||recentIds;modelInput.value=currentModel;renderModels();status.textContent='Switched to '+window.ZyncezModels.modelName(id);}
+    catch(err){currentModel=previous;renderModels();status.textContent=err.message;}
   }
-  quickModel.addEventListener('change',()=>selectModel(quickModel.value));
-  modelSearch.addEventListener('input',renderCatalog);
-  freeOnly.addEventListener('change',renderCatalog);
-  browseButton.addEventListener('click',async()=>{
-    if (!modelPicker.classList.contains('hidden')) {modelPicker.classList.add('hidden');browseButton.textContent='Browse';return;}
-    modelPicker.classList.remove('hidden');browseButton.textContent='Close';
-    if (catalog) {renderCatalog();modelSearch.focus();return;}
-    modelCount.textContent='Loading models you requested…';
-    try {const r=await request({type:'ZYNCEZ_LIST_MODELS'});if(!r?.ok)throw new Error(r?.error||'Could not list models.');catalog=r.models;renderCatalog();modelSearch.focus();}
-    catch(error){modelCount.textContent=error.message;}
-  });
-  async function loadSettings() {
-    try {
-      const data=await request({type:'ZYNCEZ_GET_SETTINGS'});
-      if (!data?.ok) throw new Error(data?.error||'Could not read settings.');
-      mode=data.mode;hasKey=data.hasKey;modeSelect.value=mode;modelInput.value=data.model;personalitySelect.value=data.personality||'friendly';personalityNotes.value=data.personalityNotes||'';replyStyleSelect.value=data.replyStyle||'short';quickLength.value=data.replyStyle||'short';recentIds=data.recentModels||[];renderRecent(data.model);updateStatus();if(!hasKey && mode==='gpt') settingsPane.classList.remove('hidden');
-    } catch (error) {status.textContent='Settings unavailable';saved.textContent=error.message;}
+
+  async function readCurrentState(){
+    const base=window.ZyncezReader.read();
+    try{
+      const r=await request({type:'ZYNCEZ_READ_GAME',roomId:base.roomId||''});
+      if(r?.ok){const state=window.ZyncezBattleState.enrichState(base,r.game);state.speedAnalysis=window.ZyncezSpeed.analyze(state);return state;}
+    }catch{/* graceful DOM fallback */}
+    const fallback=window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});fallback.speedAnalysis=window.ZyncezSpeed.analyze(fallback);return fallback;
   }
-  add('bot','Hi! I only answer when you ask. To connect OpenRouter, click the Zyncez extension icon in your browser toolbar and paste your API key. You can also use ⚙ here.');
-  loadSettings();
-  function toggle(force){const open=typeof force==='boolean'?force:panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);launcher.setAttribute('aria-expanded',String(open));if(open){loadSettings();input.focus();}}
-  launcher.addEventListener('click',()=>toggle());panel.querySelector('[data-close]').addEventListener('click',()=>toggle(false));
-  panel.querySelector('[data-settings]').addEventListener('click',()=>{settingsPane.classList.toggle('hidden');if(!settingsPane.classList.contains('hidden'))modelInput.focus();});
+  function showBattleInfo(state){
+    if(!state.battleFound && state.gameReadStatus!=='connected'){battleSummary.textContent='No battle detected';battleInfo.textContent='Open a battle in Pokémon Showdown.';return;}
+    const active=state.opponentActive?.map(p=>p.species||p.name).join(' + ')||'unknown';
+    const seen=state.opponentRevealed?.map(p=>p.species).join(', ')||'none';
+    const party=state.myParty?.length||0;
+    battleSummary.textContent=`Opponent: ${active} · Party ${party}`;
+    battleInfo.textContent=`Opponent active: ${active}. Revealed: ${seen}. Your party: ${party} Pokémon. Hidden opponents: ${state.opponentUnknownSlots||0}. Opponent moves seen: ${state.opponentMovesSeen?.reduce((n,p)=>n+(p.moves?.length||0),0)||0}.`;
+  }
+  function setBubbleText(bubble,text,format=true){if(format && bubble.classList.contains('bot') && window.ZyncezFormat?.renderMarkdown)bubble.replaceChildren(window.ZyncezFormat.renderMarkdown(text));else bubble.textContent=text;messages.scrollTop=messages.scrollHeight;}
+  function add(who,txt){if(empty?.isConnected)empty.remove();const bubble=document.createElement('div');bubble.className='bubble '+who;messages.appendChild(bubble);setBubbleText(bubble,txt,who==='bot');return bubble;}
+  function updateStatus(){status.textContent=busy?'Thinking…':mode==='local'?'Local mode · idle':hasKey?'Ready when you are':'Add API key · right-click for settings';keyStatus.textContent=hasKey?'✓ Key saved locally. Leave blank to keep it.':'No API key saved yet.';}
+  async function loadSettings(){
+    try{
+      const data=await request({type:'ZYNCEZ_GET_SETTINGS'});if(!data?.ok)throw Error(data?.error||'Could not load settings.');
+      mode=data.mode;hasKey=data.hasKey;currentModel=data.model;recentIds=data.recentModels||[];
+      modeSelect.value=mode;modelInput.value=currentModel;personalitySelect.value=data.personality||'friendly';personalityNotes.value=data.personalityNotes||'';replyStyleSelect.value=data.replyStyle||'short';quickLength.value=data.replyStyle||'short';
+      if(data.uiPrefs){ui={...ui,...data.uiPrefs};applyUI();}
+      renderModels();updateStatus();
+    }catch(error){status.textContent='Settings unavailable';saved.textContent=error.message;}
+  }
   quickLength.addEventListener('change',async()=>{
     const selected=quickLength.value;
-    try {
-      const result=await request({type:'ZYNCEZ_SET_REPLY_STYLE',replyStyle:selected});
-      if(!result?.ok) throw new Error(result?.error||'Could not change reply length.');
-      replyStyleSelect.value=result.replyStyle;
-    } catch(error) {
-      quickLength.value=replyStyleSelect.value;
-      saved.textContent=error?.message||'Could not change reply length.';
-    }
+    try{const result=await request({type:'ZYNCEZ_SET_REPLY_STYLE',replyStyle:selected});if(!result?.ok)throw Error(result?.error||'Could not change reply length.');replyStyleSelect.value=result.replyStyle;}
+    catch(error){quickLength.value=replyStyleSelect.value;status.textContent=error.message;}
   });
-  panel.querySelector('[data-save]').addEventListener('click',async()=>{
-    const key=keyInput.value.trim();saved.textContent='Saving settings…';
-    try {
-      const response=await request({type:'ZYNCEZ_SAVE_SETTINGS',mode:modeSelect.value,model:modelInput.value.trim(),key,personality:personalitySelect.value,personalityNotes:personalityNotes.value,replyStyle:replyStyleSelect.value});
-      if (!response?.ok) throw new Error(response?.error||'Failed to save.');
-      mode=response.mode;hasKey=response.hasKey;replyStyleSelect.value=response.replyStyle;quickLength.value=response.replyStyle;recentIds=[response.model,...recentIds];renderRecent(response.model);keyInput.value='';updateStatus();saved.textContent='Saved!';settingsPane.classList.add('hidden');
-    } catch (error) {saved.textContent=error.message;}
-    finally {keyInput.value='';}
+  $('[data-save]').addEventListener('click',async()=>{
+    saved.textContent='Saving…';
+    try{
+      const response=await request({type:'ZYNCEZ_SAVE_SETTINGS',mode:modeSelect.value,model:modelInput.value.trim(),key:keyInput.value.trim(),personality:personalitySelect.value,personalityNotes:personalityNotes.value,replyStyle:replyStyleSelect.value});
+      if(!response?.ok)throw Error(response?.error||'Could not save settings.');
+      mode=response.mode;hasKey=response.hasKey;currentModel=response.model;recentIds=[currentModel,...recentIds];quickLength.value=response.replyStyle;renderModels();updateStatus();saved.textContent='Saved.';settingsPane.hidden=true;
+    }catch(error){saved.textContent=error.message;}finally{keyInput.value='';}
   });
-  panel.querySelector('[data-remove]').addEventListener('click',async()=>{
-    try {const r=await request({type:'ZYNCEZ_REMOVE_KEY'});if(!r?.ok)throw new Error(r?.error||'Could not remove the key.');hasKey=false;keyInput.value='';updateStatus();saved.textContent='Stored API key removed.';}
-    catch(error){saved.textContent=error.message;}
-  });
-  panel.querySelector('[data-clear]').addEventListener('click',()=>{messages.replaceChildren();context.opponentTypes=[];history=[];add('bot','Chat cleared. I will wait for your next question.');});
-  panel.querySelector('[data-refresh]').addEventListener('click',async()=>{const state=await readCurrentState();showBattleInfo(state);add('bot',window.ZyncezCoach.analyze('battle status',state,context));});
-  panel.querySelector('form').addEventListener('submit',async e=>{
+  $('[data-remove]').addEventListener('click',async()=>{try{const r=await request({type:'ZYNCEZ_REMOVE_KEY'});if(!r?.ok)throw Error(r?.error);hasKey=false;keyInput.value='';updateStatus();saved.textContent='API key removed.';}catch(error){saved.textContent=error.message;}});
+  $('[data-refresh]').addEventListener('click',async()=>{const state=await readCurrentState();showBattleInfo(state);add('bot',window.ZyncezCoach.analyze('battle status',state,context));});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('.composer').requestSubmit();}});
+  input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,115)+'px';});
+  $('.composer').addEventListener('submit',async e=>{
     e.preventDefault();const q=input.value.trim();if(!q||busy)return;
-    input.value='';add('user',q);
-    // Settings may have changed in the extension toolbar popup since the last message.
-    await loadSettings();
-    const state=await readCurrentState();
-    showBattleInfo(state);
+    input.value='';input.style.height='auto';add('user',q);closeModels();await loadSettings();
+    const state=await readCurrentState();showBattleInfo(state);
     if(mode==='local'){add('bot',window.ZyncezCoach.analyze(q,state,context));return;}
-    if(!hasKey){add('bot','Click the Zyncez extension icon in your browser toolbar (or ⚙ here), paste your OpenRouter API key, then click Save settings.');return;}
-    // Local, bounded justification engine runs only for an explicit tactical question;
-    // only a compact evidence-based verdict is passed to the AI, not its score internals.
-    if(window.ZyncezDecision?.isTacticalQuestion(q)) state.decisionSupport=window.ZyncezDecision.analyze(state,q);
-    busy=true;sendButton.disabled=true;updateStatus();const waiting=add('bot','Thinking…');
-    try {
+    if(!hasKey){add('bot','Right-click the chat bubble and open Settings to add your OpenRouter key.');return;}
+    if(window.ZyncezDecision?.isTacticalQuestion(q))state.decisionSupport=window.ZyncezDecision.analyze(state,q);
+    busy=true;sendButton.disabled=true;updateStatus();const pending=add('bot','Thinking…');
+    try{
       const reply=await request({type:'ZYNCEZ_ASK',question:q,state,history:history.slice(-8)});
-      if(reply?.ok && reply.answer){setBubbleText(waiting,reply.answer,true);history.push({role:'user',content:q},{role:'assistant',content:reply.answer});history=history.slice(-12);}
-      else setBubbleText(waiting,'AI connection: '+(reply?.error||'Unknown error.'),false);
-    }catch(error){setBubbleText(waiting,'AI connection: '+(error?.message||'Request failed.'),false);}
+      if(reply?.ok&&reply.answer){setBubbleText(pending,reply.answer,true);history.push({role:'user',content:q},{role:'assistant',content:reply.answer});history=history.slice(-12);}
+      else setBubbleText(pending,'AI connection: '+(reply?.error||'Unknown error.'),false);
+    }catch(error){setBubbleText(pending,'AI connection: '+(error?.message||'Request failed.'),false);}
     finally{busy=false;sendButton.disabled=false;updateStatus();input.focus();}
   });
+  document.documentElement.appendChild(host);
+  applyUI();renderModels();loadSettings();
 })();

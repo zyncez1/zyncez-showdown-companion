@@ -5,7 +5,7 @@ importScripts('ai-core.js','model-catalog.js','game-capture.js');
 // chrome.storage.local normally allows content-script reads. Deny them before reading/writing secrets.
 const storageLocked=chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'})
   .catch(()=>{throw new Error('This browser cannot protect extension key storage. Please update Chrome or Opera.');});
-const SETTINGS=['zyncezApiKey','zyncezModel','zyncezMode','zyncezRecentModels','zyncezPersonality','zyncezPersonalityNotes','zyncezReplyStyle'];
+const SETTINGS=['zyncezApiKey','zyncezModel','zyncezMode','zyncezRecentModels','zyncezPersonality','zyncezPersonalityNotes','zyncezReplyStyle','zyncezUiPrefs'];
 function allowedSender(sender, type) {
   if (sender.id !== chrome.runtime.id) return false;
   // Extension popup can manage settings, but must never initiate AI requests.
@@ -18,11 +18,27 @@ function allowedSender(sender, type) {
     return url.protocol==='https:' && ['play.pokemonshowdown.com','pokemonshowdown.com'].includes(url.hostname);
   } catch { return false; }
 }
+const UI_DEFAULTS=Object.freeze({theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,position:{x:1,y:1}});
+function uiPreferences(input) {
+  const v=input && typeof input==='object'?input:{};
+  const oneOf=(key,allowed)=>allowed.includes(v[key])?v[key]:UI_DEFAULTS[key];
+  const bounded=(n,fallback)=>typeof n==='number'&&Number.isFinite(n)?Math.max(0,Math.min(1,n)):fallback;
+  return {
+    theme:oneOf('theme',['midnight','frost','light']),
+    accent:oneOf('accent',['violet','blue','teal','rose','amber']),
+    width:oneOf('width',['compact','regular','wide']),
+    height:oneOf('height',['short','regular','tall']),
+    font:oneOf('font',['small','regular','large']),
+    bubble:oneOf('bubble',['small','regular','large']),
+    opacity:Number.isInteger(v.opacity)?Math.max(78,Math.min(100,v.opacity)):96,
+    position:{x:bounded(v.position?.x,1),y:bounded(v.position?.y,1)}
+  };
+}
 async function handle(msg,sender) {
   await storageLocked;
   if (msg.type==='ZYNCEZ_GET_SETTINGS') {
     const s=await chrome.storage.local.get(SETTINGS);
-    return {ok:true,mode:s.zyncezMode==='local'?'local':'gpt',model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,hasKey:!!s.zyncezApiKey,recentModels:ZyncezModels.recentModels(s.zyncezModel||ZyncezAI.DEFAULT_MODEL,s.zyncezRecentModels),...ZyncezAI.sanitizePreferences({personality:s.zyncezPersonality,personalityNotes:s.zyncezPersonalityNotes,replyStyle:s.zyncezReplyStyle})};
+    return {ok:true,mode:s.zyncezMode==='local'?'local':'gpt',model:s.zyncezModel||ZyncezAI.DEFAULT_MODEL,hasKey:!!s.zyncezApiKey,recentModels:ZyncezModels.recentModels(s.zyncezModel||ZyncezAI.DEFAULT_MODEL,s.zyncezRecentModels),...ZyncezAI.sanitizePreferences({personality:s.zyncezPersonality,personalityNotes:s.zyncezPersonalityNotes,replyStyle:s.zyncezReplyStyle}),uiPrefs:uiPreferences(s.zyncezUiPrefs)};
   }
   if (msg.type==='ZYNCEZ_SAVE_SETTINGS') {
     const mode=msg.mode==='local'?'local':'gpt';
@@ -36,6 +52,14 @@ async function handle(msg,sender) {
     if (newKey) settings.zyncezApiKey=newKey;
     await chrome.storage.local.set(settings);
     return {ok:true,mode,model,...preferences,hasKey:newKey?true:!!(await chrome.storage.local.get('zyncezApiKey')).zyncezApiKey};
+  }
+  if (msg.type==='ZYNCEZ_SET_UI_PREFS') {
+    const existing=(await chrome.storage.local.get('zyncezUiPrefs')).zyncezUiPrefs;
+    const previous=uiPreferences(existing);
+    const incoming=msg.prefs&&typeof msg.prefs==='object'?msg.prefs:{};
+    const uiPrefs=uiPreferences({...previous,...incoming,position:incoming.position?{...previous.position,...incoming.position}:previous.position});
+    await chrome.storage.local.set({zyncezUiPrefs:uiPrefs});
+    return {ok:true,uiPrefs};
   }
   if (msg.type==='ZYNCEZ_SET_REPLY_STYLE') {
     // Quick length switch: never starts an AI call or changes any other preferences.
@@ -84,7 +108,7 @@ async function handle(msg,sender) {
   return {ok:false,error:'Unknown extension action.'};
 }
 chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
-  if (!msg || !['ZYNCEZ_GET_SETTINGS','ZYNCEZ_SAVE_SETTINGS','ZYNCEZ_SET_MODEL','ZYNCEZ_LIST_MODELS','ZYNCEZ_REMOVE_KEY','ZYNCEZ_READ_GAME','ZYNCEZ_ASK','ZYNCEZ_SET_REPLY_STYLE'].includes(msg.type)) return false;
+  if (!msg || !['ZYNCEZ_GET_SETTINGS','ZYNCEZ_SAVE_SETTINGS','ZYNCEZ_SET_MODEL','ZYNCEZ_LIST_MODELS','ZYNCEZ_REMOVE_KEY','ZYNCEZ_READ_GAME','ZYNCEZ_ASK','ZYNCEZ_SET_REPLY_STYLE','ZYNCEZ_SET_UI_PREFS'].includes(msg.type)) return false;
   if (!allowedSender(sender,msg.type)) {respond({ok:false,error:'Only the Zyncez extension and Pokémon Showdown messenger can send requests.'});return false;}
   Promise.resolve().then(()=>handle(msg,sender)).then(respond,error=>respond({ok:false,error:error?.message||'Extension request failed.'}));
   return true;

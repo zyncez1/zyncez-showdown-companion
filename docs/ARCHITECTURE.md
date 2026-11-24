@@ -65,3 +65,13 @@ On the player's Send only: `src/content.js` gathers Showdown state, runs `Zyncez
 - `src/ai-core.js` passes the summary **inside the same model call** and asks for a natural, concise recommendation using the chosen personality and reply length. GPT may disagree when it sees contradictory confirmed mechanics.
 
 This is not tree-search optimization against every possible hidden set. Opponent counters are plausible scenarios; estimates can be inaccurate due to hidden abilities/items or missing mechanics. No background polling, auto-play or extra API calls.
+
+
+## v0.15 conversation UI
+
+- `src/chat-ui.js`: scoped Shadow DOM stylesheet with spring-like open/close transitions, themes and OS reduced-motion support.
+- `src/content.js`: draggable bubble + attached panel, read-only context menu, accessible settings panel, near-input model picker, preserved on-demand battle/action workflow.
+- `src/model-catalog.js`: a bundled, static preset list used by in-game chat and extension popup. There is **no model-catalog network fetch in either UI**. The older explicit `ZYNCEZ_LIST_MODELS` background message remains for compatibility only.
+- `src/background.js`: whitelist/validate and persist appearance, size and normalized bubble coordinates. `chrome.storage.local` remains limited to trusted extension contexts.
+
+Customization and model switches are local browser-extension messages only. They must never trigger `ZYNCEZ_ASK` or any chargeable API request. Current gameplay data is read only when the user explicitly sends a question or presses refresh.

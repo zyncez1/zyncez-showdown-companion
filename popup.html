@@ -20,15 +20,9 @@
         <button type="button" id="show-key" aria-label="Show or hide API key" title="Show/hide key">Show</button>
       </div>
       <p class="help" id="key-help">Enter your key once. A saved key is never displayed again.</p>
-      <label for="recent-models">Quick switch AI model</label>
+      <label for="recent-models">Ready-to-use models (offline)</label>
       <select id="recent-models" aria-label="Choose a recent AI model"></select>
-      <button class="browse" id="browse-models" type="button">🔎 Browse OpenRouter models</button>
-      <section id="model-picker" class="model-picker" hidden aria-label="Browse OpenRouter models">
-        <div class="picker-top"><input id="model-search" type="search" placeholder="Search GPT, Claude, Gemini, free…" autocomplete="off" aria-label="Search models" maxlength="100">
-        <label class="free-only"><input id="model-free" type="checkbox"> Free only</label></div>
-        <p id="model-count" class="help" aria-live="polite">Open the catalog to search for a model.</p>
-        <div id="model-results" class="model-results" role="list"></div>
-      </section>
+      <p class="help">Model choices load instantly from this extension. You can still enter a custom ID below.</p>
       <label for="model">Exact model ID (advanced)</label>
       <input id="model" type="text" value="openai/gpt-5-mini" autocomplete="off" spellcheck="false" maxlength="150">
       <label for="mode">Chat mode</label>

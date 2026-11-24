@@ -6,9 +6,8 @@
   const notice = $('notice'), status = $('connection'), help = $('key-help');
   const save = $('save'), remove = $('remove');
   const personality=$('personality'), personalityNotes=$('personality-notes'), replyStyle=$('reply-style');
-  const recent=$('recent-models'),browse=$('browse-models'),picker=$('model-picker');
-  const search=$('model-search'),free=$('model-free'),results=$('model-results'),count=$('model-count');
-  let hasKey = false, catalog=null, recentIds=[];
+  const recent=$('recent-models');
+  let hasKey = false, recentIds=[];
   function message(text, error=false) { notice.textContent=text; notice.classList.toggle('error',error); }
   function updateStatus() {
     status.textContent=hasKey?'Key saved':'No key';
@@ -17,36 +16,18 @@
   function busy(value) { save.disabled=value; remove.disabled=value; }
   function renderRecent(selected) {
     recent.replaceChildren();
-    for (const id of ZyncezModels.recentModels(selected,recentIds)) {
-      const option=document.createElement('option');option.value=id;option.textContent=id;recent.appendChild(option);
+    for (const entry of ZyncezModels.offlineOptions(selected,recentIds)) {
+      const option=document.createElement('option');option.value=entry.id;
+      option.textContent=entry.name+' · '+entry.provider;
+      recent.appendChild(option);
     }
     recent.value=selected;
-  }
-  function renderCatalog() {
-    if (!catalog) return;
-    const found=ZyncezModels.filterCatalog(catalog,search.value,free.checked);
-    const total=ZyncezModels.filterCatalog(catalog,search.value,free.checked,1000).length;
-    count.textContent=`${total} matching models${total>found.length?' · showing first '+found.length:''}. Prices are estimates from OpenRouter.`;
-    results.replaceChildren();
-    for (const item of found) {
-      const button=document.createElement('button');button.type='button';button.className='model-result';
-      const name=document.createElement('strong');name.textContent=item.name;
-      const id=document.createElement('small');id.textContent=item.id;
-      const cost=document.createElement('small');cost.textContent=ZyncezModels.displayCost(item);
-      button.append(name,id,cost);
-      if (item.id===model.value) button.classList.add('selected');
-      button.addEventListener('click',()=>chooseModel(item.id));
-      results.appendChild(button);
-    }
-    if (!found.length) results.textContent='No matching models. Try another search.';
   }
   async function chooseModel(id) {
     try {
       const r=await request({type:'ZYNCEZ_SET_MODEL',model:id});
       model.value=r.model;recentIds=r.recentModels;renderRecent(r.model);
-      message(`✓ Now using ${r.model}. No AI request was sent.`);
-      renderCatalog();
-      picker.hidden=true;browse.textContent='🔎 Browse OpenRouter models';
+      message('✓ Model saved. No AI call was made.');
     } catch(error) {message(error.message,true);}
   }
 
@@ -83,16 +64,6 @@
     finally{busy(false);}
   });
   recent.addEventListener('change',()=>chooseModel(recent.value));
-  search.addEventListener('input',renderCatalog);
-  free.addEventListener('change',renderCatalog);
-  browse.addEventListener('click',async()=>{
-    if (!picker.hidden) {picker.hidden=true;browse.textContent='🔎 Browse OpenRouter models';return;}
-    picker.hidden=false;browse.textContent='Close model browser';
-    if (catalog) {renderCatalog();search.focus();return;}
-    count.textContent='Loading OpenRouter catalog (only because you clicked Browse)…';
-    try {const r=await request({type:'ZYNCEZ_LIST_MODELS'});catalog=r.models;renderCatalog();search.focus();}
-    catch(error) {count.textContent=error.message;message(error.message,true);}
-  });
   $('show-key').addEventListener('click',()=>{
     key.type=key.type==='password'?'text':'password';$('show-key').textContent=key.type==='password'?'Show':'Hide';
   });

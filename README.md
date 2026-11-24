@@ -1,4 +1,4 @@
-# Zyncez AI Battle Companion (v0.14)
+# Zyncez AI Battle Companion (v0.15)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -8,11 +8,25 @@ A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messe
 2. Open `chrome://extensions` (or `opera://extensions`), turn on **Developer mode**, click **Load unpacked**, and choose the extracted `zyncez-showdown-companion` directory containing `manifest.json`.
 3. If upgrading v0.3, **replace the old unpacked extension files in the same folder** and click **Reload** on the extensions page. This preserves your extension ID and already saved settings. If you load a new folder instead, Chrome/Opera may treat it as a separate installation; then enter the key again.
 4. Click the **Extensions (puzzle piece)** icon in your browser toolbar, pin **Zyncez AI Companion**, and click its icon. **The OpenRouter API key field appears right in this popup.**
-5. Keep **OpenRouter AI** as the mode, choose a model from **Quick switch** or click **Browse OpenRouter models** to search the catalog, and paste your **OpenRouter API key** from [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys).
+5. Keep **OpenRouter AI** as the mode, choose a **ready-to-use model** from the offline preset dropdown (or enter a custom model ID), and paste your **OpenRouter API key** from [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys).
 6. Click **Save settings & personality**. Open or refresh [Pokémon Showdown](https://play.pokemonshowdown.com/), click the floating **⚡** bubble, ask a question, and press **Send**. The model's response appears in the same messenger window.
-7. If you prefer, the exact same settings are also behind **⚙** inside the in-game messenger. The message panel rechecks saved settings when you open it or send a question.
+7. You can manage all settings by **right-clicking the floating bubble or an empty part of the chat** and choosing **Settings & appearance**. The **⋯** menu button is an accessible alternative. The messenger rechecks saved settings when opened or when you send a question.
 
-You only need to paste the key once per browser profile/extension installation. **To change models, use the quick-switch dropdown or Browse button at the top of the Showdown messenger, or use the extension toolbar popup.** Browse provides search, a Free only checkbox, and available token prices. Model selection saves immediately without making an AI request. The exact model ID field remains available as an advanced fallback. You can replace/remove the key later in ⚙ Settings. **Local commands** can be selected for basic offline type matchups, and need no API key.
+You only need to paste the key once per browser profile/extension installation. The **model selector now lives beside the typing box**, not above the conversation. **Changing models doesn't fetch a catalog or start an AI request**: presets are included in the extension. You can use a custom or recent model ID via Settings. A listed model may no longer be available or may change price on OpenRouter; the list is offline, not a live pricing guarantee.
+
+## v0.15 — Minimal draggable chat and contextual customization
+
+- **Click the floating bubble** to open or close your messenger. The panel eases in/out with an iOS-like transform and opacity transition; a reduced-motion setting disables the animation.
+- **Drag the bubble** to move it around the page, with the chat staying attached. Click and drag are distinguished by a movement threshold so a drag does not accidentally open/close the chat. The chat header is an optional drag handle. The bubble location is saved as a bounded viewport-relative position and restored after reload, including window resizing.
+- **Right-click the bubble/chat**, or use the small **⋯** header menu, to open a contextual menu: Settings & appearance, Clear chat, Reset position. Native right-click still works inside text fields and links.
+- **Instant model picker in the composer**: a compact model label is displayed beside the input and reply-length selector. Clicking it shows bundled models such as GPT-5 Mini, Claude Sonnet, Claude Opus, Gemini Flash and Llama. No network request is made to load them. Previously selected custom IDs are retained.
+- **Appearance settings:** Midnight, Light and Frosted Glass themes; five accent colors; compact/normal/wide width; short/regular/tall height; text size; bubble size and opacity. Selections persist in extension storage, alongside existing personality, reply length and API key settings.
+- **Quiet chat view:** no intrusive model list, giant battle-state banner, or permanent control strip. Battle data can be expanded on demand under the conversation. AI requests occur only when you press **Send** or Enter, while Shift+Enter inserts a newline. The ⟳ button reads battle details locally, not through OpenRouter.
+- **Security:** appearance values are validated against a whitelist; no CSS or code from user input is injected. The OpenRouter API key is stored in trusted extension storage and never displayed in the chat bubble or committed to the repository.
+
+**Upgrade without losing your key:** extract this package and replace files inside the **same existing unpacked extension folder**, then click Reload under `opera://extensions` and refresh Showdown. Don't remove and re-add the extension unless needed because a new installation might get a new ID and lose local settings.
+
+**Testing:** `node --test tests/*.test.js` plus a simulated Chromium browser test covering click/open/close, dragging, right-click Settings, immediate model switching, theme saves, and zero AI calls during UI interactions. Live Opera and your personal OpenRouter model still require real-world testing.
 
 ## v0.14 — Unified recommendation and evidence-based justification
 
@@ -76,7 +90,7 @@ Ask **`speed`** in Local mode for a Speed summary, or **“Who moves first and w
 
 ## Important behavior
 
-- No background chat, polling, AI analysis, automatic messages, or automatic gameplay. **AI generation requests** are made only when you press **Send**. Clicking **Browse** explicitly fetches the OpenRouter model catalog; clicking a model only changes the locally saved selection.
+- No background chat, polling, AI analysis, automatic messages, or automatic gameplay. **AI generation requests** are made only when you press **Send**. Model presets are included offline and selecting one only changes the locally saved model. No catalog fetch is needed.
 - Each request includes the user's question, up to twelve recent AI chat messages, and a **limited sanitized snapshot** containing your full own party and known moves, active Pokémon and their available move PP, active opponents, previously revealed opponents, revealed opponent moves, and structured battle events. No **raw** battle logs, player chat, usernames, or room URLs are forwarded. Only selected structured battle actions are sent (e.g. moves, switches, statuses).
 - The OpenRouter endpoint is `https://openrouter.ai/api/v1/chat/completions`, called **from the extension's service worker**, not from the page. The API key is not hardcoded in the extension files and never sent to the Showdown web page itself.
 - The key is kept in **`chrome.storage.local` restricted to trusted extension contexts**. It survives browser restarts but is **not encrypted against someone who can access your local browser profile or computer**. Use a private, low-limit API key. Never share a profile, screenshots showing the key, source files with keys added, or export sensitive browser data. You may revoke the key in OpenRouter if it is exposed.
@@ -108,17 +122,17 @@ Ask **`speed`** in Local mode for a Speed summary, or **“Who moves first and w
 
 ## Model picker details
 
-- The selected model appears in a dropdown **inside the messenger**, immediately above the chat area. Choose a recently used model in one click.
-- Click **Browse**, search by name or provider, optionally check **Free only**, and click a model to select it immediately. Prices shown come from the catalog and may change; actual charges follow OpenRouter pricing.
-- The extension fetches the catalog on demand from `https://openrouter.ai/api/v1/models`, filtered to chat-completion-compatible models. It uses your saved key for that fetch, but never sends your key to the Pokémon Showdown page.
-- You can also browse or quick-switch from the browser toolbar extension popup.
+- Click the small model name **inside the message composer**, next to where you type. The menu opens instantly from a bundled list, without contacting OpenRouter.
+- Select a model to save the choice, or use **Settings > Custom OpenRouter model ID** to supply a new ID. Recent custom IDs stay available.
+- OpenRouter may change model availability, naming or pricing after the extension was built. An entry in this preset list does not guarantee a model will accept an API request. For current models, check [OpenRouter](https://openrouter.ai/models) separately when desired.
+- The toolbar popup also uses the offline list. It is still useful for setting a key when your Showdown tab is closed.
 
 ## Questions and troubleshooting
 
 | Problem | Fix |
 |---|---|
 | Can't see ⚡ | Reload Pokémon Showdown after enabling the extension. Check the `manifest.json` folder you loaded. The toolbar icon opens settings, while ⚡ opens the chat inside Showdown. |
-| "API key missing" | Click the Zyncez toolbar icon (Extensions puzzle button if unpinned), paste a key, and click Save settings & personality. |
+| "API key missing" | Right-click the chat bubble, choose Settings & appearance, paste a key, and click Save settings (or use the toolbar popup). |
 | Invalid model / 404 | Use an exact OpenRouter model ID, like `openai/gpt-5-mini`, found at [OpenRouter Models](https://openrouter.ai/models). |
 | 401 / 402 / credits | Confirm your API key is active and your account has credits/limits sufficient for the selected model. |
 | Network error | Confirm access to `openrouter.ai`, then retry with a short message. |

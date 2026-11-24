@@ -181,3 +181,43 @@ test('old response styles from v0.9 load as compatible new values',async()=>{
   h.data.zyncezReplyStyle='detailed';
   assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).replyStyle,'long');
 });
+
+test('appearance preferences save locally with no model fetch or AI request',async()=>{
+  const h=await createHarness();
+  const first=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
+  assert.equal(first.uiPrefs.theme,'midnight');
+  assert.equal(first.uiPrefs.height,'regular');
+  assert.equal(first.uiPrefs.position.x,1);
+  const changed=await h.message({type:'ZYNCEZ_SET_UI_PREFS',prefs:{theme:'light',accent:'teal',width:'wide',height:'short',font:'large',bubble:'small',opacity:86,position:{x:0.2,y:0.65}}});
+  assert.equal(changed.ok,true);
+  assert.equal(changed.uiPrefs.theme,'light');
+  assert.equal(changed.uiPrefs.position.x,0.2);
+  assert.equal(changed.uiPrefs.position.y,0.65);
+  assert.equal((await h.message({type:'ZYNCEZ_GET_SETTINGS'})).uiPrefs.height,'short');
+  assert.equal(h.calls.includes('fetch'),false);
+});
+
+test('appearance input is sanitized; malicious CSS and invalid coordinates are discarded',async()=>{
+  const h=await createHarness();
+  const bad=await h.message({type:'ZYNCEZ_SET_UI_PREFS',prefs:{theme:'url(javascript:evil)',accent:'javascript:red',height:'enormous',opacity:-100,position:{x:600,y:-600},token:'private'}});
+  assert.equal(bad.uiPrefs.theme,'midnight');
+  assert.equal(bad.uiPrefs.accent,'violet');
+  assert.equal(bad.uiPrefs.height,'regular');
+  assert.equal(bad.uiPrefs.opacity,78);
+  assert.equal(bad.uiPrefs.position.x,1);
+  assert.equal(bad.uiPrefs.position.y,0);
+  assert.equal(bad.uiPrefs.token,undefined);
+  assert.equal(JSON.stringify(bad.uiPrefs).includes('javascript'),false);
+});
+
+test('appearance preferences do not change API key, model, personality or reply length',async()=>{
+  const h=await createHarness();
+  await h.message({type:'ZYNCEZ_SAVE_SETTINGS',mode:'gpt',model:'anthropic/claude-opus-5.5',key:'mock-key',personality:'coach',replyStyle:'long'});
+  await h.message({type:'ZYNCEZ_SET_UI_PREFS',prefs:{width:'compact',bubble:'large'}});
+  const state=await h.message({type:'ZYNCEZ_GET_SETTINGS'});
+  assert.equal(state.model,'anthropic/claude-opus-5.5');
+  assert.equal(state.personality,'coach');
+  assert.equal(state.replyStyle,'long');
+  assert.equal(state.hasKey,true);
+  assert.equal(h.calls.filter(x=>x==='fetch').length,0);
+});

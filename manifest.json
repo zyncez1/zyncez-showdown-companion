@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.14.0",
-  "description": "On-demand Showdown companion with integrated Smogon calculations, opponent counterplays and evidence-based recommendations.",
+  "version": "0.15.0",
+  "description": "Minimal draggable Showdown messenger with instant offline model switcher, contextual settings and integrated battle analysis.",
   "permissions": [
     "scripting",
     "storage"
@@ -30,6 +30,8 @@
         "src/reader.js",
         "src/coach.js",
         "src/message-format.js",
+        "src/model-catalog.js",
+        "src/chat-ui.js",
         "src/content.js"
       ],
       "run_at": "document_idle"
@@ -41,7 +43,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Zyncez AI \u2013 OpenRouter Settings",
+    "default_title": "Zyncez AI – OpenRouter Settings",
     "default_popup": "popup.html"
   },
   "background": {
