@@ -46,3 +46,13 @@ test('manifest packages Chat UI and preset list in content script order',()=>{
   assert.ok(files.indexOf('src/model-catalog.js')<files.indexOf('src/content.js'));
   assert.ok(files.indexOf('src/chat-ui.js')<files.indexOf('src/content.js'));
 });
+
+test('battle context is invisible but the full on-demand AI pipeline is preserved',()=>{
+  assert.doesNotMatch(script,/data-battle-(details|summary|info)|showBattleInfo/);
+  assert.doesNotMatch(css,/\.battle-details/);
+  assert.match(script,/const state=await readCurrentState\(\);\s*if\(mode==='local'\)/);
+  assert.match(script,/state\.speedAnalysis=window\.ZyncezSpeed\.analyze\(state\)/);
+  assert.match(script,/state\.decisionSupport=window\.ZyncezDecision\.analyze\(state,q\)/);
+  assert.match(script,/type:'ZYNCEZ_ASK',question:q,state,history:/);
+  assert.match(script,/ZYNCEZ_READ_GAME/);
+});

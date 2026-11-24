@@ -1,4 +1,4 @@
-# Zyncez AI Battle Companion (v0.15)
+# Zyncez AI Battle Companion (v0.16)
 
 A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messenger** to Pokémon Showdown. Connect **OpenRouter from the browser toolbar popup (or in-page ⚙ Settings)**; no local server, Node.js, command window, pairing code, or separate OpenAI API account needed. The assistant replies **only when you click Send**. It never clicks moves or plays automatically.
 
@@ -14,6 +14,10 @@ A Chrome / Opera Manifest V3 extension that adds a **toggleable, on-demand messe
 
 You only need to paste the key once per browser profile/extension installation. The **model selector now lives beside the typing box**, not above the conversation. **Changing models doesn't fetch a catalog or start an AI request**: presets are included in the extension. You can use a custom or recent model ID via Settings. A listed model may no longer be available or may change price on OpenRouter; the list is offline, not a live pricing guarantee.
 
+## v0.16 — Invisible battle context
+
+Removed the expandable opponent/party summary from the messenger. The same on-demand battle reader, Speed and damage calculations, and tactical justification are still used in the AI request when you send a relevant question. The refresh button remains an optional local chat status command. No automatic AI calls are introduced.
+
 ## v0.15 — Minimal draggable chat and contextual customization
 
 - **Click the floating bubble** to open or close your messenger. The panel eases in/out with an iOS-like transform and opacity transition; a reduced-motion setting disables the animation.
@@ -21,7 +25,7 @@ You only need to paste the key once per browser profile/extension installation. 
 - **Right-click the bubble/chat**, or use the small **⋯** header menu, to open a contextual menu: Settings & appearance, Clear chat, Reset position. Native right-click still works inside text fields and links.
 - **Instant model picker in the composer**: a compact model label is displayed beside the input and reply-length selector. Clicking it shows bundled models such as GPT-5 Mini, Claude Sonnet, Claude Opus, Gemini Flash and Llama. No network request is made to load them. Previously selected custom IDs are retained.
 - **Appearance settings:** Midnight, Light and Frosted Glass themes; five accent colors; compact/normal/wide width; short/regular/tall height; text size; bubble size and opacity. Selections persist in extension storage, alongside existing personality, reply length and API key settings.
-- **Quiet chat view:** no intrusive model list, giant battle-state banner, or permanent control strip. Battle data can be expanded on demand under the conversation. AI requests occur only when you press **Send** or Enter, while Shift+Enter inserts a newline. The ⟳ button reads battle details locally, not through OpenRouter.
+- **Quiet chat view:** no intrusive model list, giant battle-state banner, or permanent control strip. The former expandable battle details strip is removed as of v0.16. AI requests occur only when you press **Send** or Enter, while Shift+Enter inserts a newline. The ⟳ button reads battle details locally, not through OpenRouter.
 - **Security:** appearance values are validated against a whitelist; no CSS or code from user input is injected. The OpenRouter API key is stored in trusted extension storage and never displayed in the chat bubble or committed to the repository.
 
 **Upgrade without losing your key:** extract this package and replace files inside the **same existing unpacked extension folder**, then click Reload under `opera://extensions` and refresh Showdown. Don't remove and re-add the extension unless needed because a new installation might get a new ID and lose local settings.

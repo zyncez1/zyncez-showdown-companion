@@ -15,7 +15,6 @@
       <button type="button" class="icon-button" data-menu-button title="Menu (or right-click the chat)" aria-label="Open chat menu">⋯</button>
     </header>
     <div class="messages" role="log" aria-live="polite"><div class="empty" data-empty><span class="empty-icon">✦</span>Ask about your battle whenever you need me.</div></div>
-    <details class="battle-details" data-battle-details><summary data-battle-summary>Battle details · on demand</summary><div data-battle-info>Ask a question or press ↻ to read your battle.</div></details>
     <form class="composer"><textarea rows="1" maxlength="900" autocomplete="off" aria-label="Message Zyncez" placeholder="Message Zyncez…"></textarea>
       <div class="composer-bottom">
         <button type="button" class="model-trigger" data-model-trigger aria-haspopup="listbox" aria-expanded="false" title="Switch model instantly"><span class="model-label" data-model-label>GPT-5 Mini</span><span class="chevron">⌄</span></button>
@@ -59,7 +58,6 @@
   const settingsPane=$('[data-settings-pane]'),modelPicker=$('[data-model-picker]'),modelTrigger=$('[data-model-trigger]'),modelOptions=$('[data-model-options]'),modelLabel=$('[data-model-label]');
   const modeSelect=$('[data-mode]'),modelInput=$('[data-model]'),keyInput=$('[data-key]'),keyStatus=$('[data-key-status]'),saved=$('[data-saved]');
   const personalitySelect=$('[data-personality]'),personalityNotes=$('[data-personality-notes]'),replyStyleSelect=$('[data-reply-style]'),quickLength=$('[data-quick-length]');
-  const battleInfo=$('[data-battle-info]'),battleSummary=$('[data-battle-summary]');
   const context={opponentTypes:[]};
   const UI_DEFAULTS={theme:'midnight',accent:'violet',width:'regular',height:'regular',font:'regular',bubble:'regular',opacity:96,position:{x:1,y:1}};
   const ACCENTS={violet:'#8b80ff',blue:'#4b9bff',teal:'#16bca8',rose:'#ed6aa6',amber:'#e8a946'};
@@ -172,14 +170,6 @@
     }catch{/* graceful DOM fallback */}
     const fallback=window.ZyncezBattleState.enrichState(base,{available:false,reason:'Could not access the Showdown battle request.'});fallback.speedAnalysis=window.ZyncezSpeed.analyze(fallback);return fallback;
   }
-  function showBattleInfo(state){
-    if(!state.battleFound && state.gameReadStatus!=='connected'){battleSummary.textContent='No battle detected';battleInfo.textContent='Open a battle in Pokémon Showdown.';return;}
-    const active=state.opponentActive?.map(p=>p.species||p.name).join(' + ')||'unknown';
-    const seen=state.opponentRevealed?.map(p=>p.species).join(', ')||'none';
-    const party=state.myParty?.length||0;
-    battleSummary.textContent=`Opponent: ${active} · Party ${party}`;
-    battleInfo.textContent=`Opponent active: ${active}. Revealed: ${seen}. Your party: ${party} Pokémon. Hidden opponents: ${state.opponentUnknownSlots||0}. Opponent moves seen: ${state.opponentMovesSeen?.reduce((n,p)=>n+(p.moves?.length||0),0)||0}.`;
-  }
   function setBubbleText(bubble,text,format=true){if(format && bubble.classList.contains('bot') && window.ZyncezFormat?.renderMarkdown)bubble.replaceChildren(window.ZyncezFormat.renderMarkdown(text));else bubble.textContent=text;messages.scrollTop=messages.scrollHeight;}
   function add(who,txt){if(empty?.isConnected)empty.remove();const bubble=document.createElement('div');bubble.className='bubble '+who;messages.appendChild(bubble);setBubbleText(bubble,txt,who==='bot');return bubble;}
   function updateStatus(){status.textContent=busy?'Thinking…':mode==='local'?'Local mode · idle':hasKey?'Ready when you are':'Add API key · right-click for settings';keyStatus.textContent=hasKey?'✓ Key saved locally. Leave blank to keep it.':'No API key saved yet.';}
@@ -206,13 +196,13 @@
     }catch(error){saved.textContent=error.message;}finally{keyInput.value='';}
   });
   $('[data-remove]').addEventListener('click',async()=>{try{const r=await request({type:'ZYNCEZ_REMOVE_KEY'});if(!r?.ok)throw Error(r?.error);hasKey=false;keyInput.value='';updateStatus();saved.textContent='API key removed.';}catch(error){saved.textContent=error.message;}});
-  $('[data-refresh]').addEventListener('click',async()=>{const state=await readCurrentState();showBattleInfo(state);add('bot',window.ZyncezCoach.analyze('battle status',state,context));});
+  $('[data-refresh]').addEventListener('click',async()=>{const state=await readCurrentState();add('bot',window.ZyncezCoach.analyze('battle status',state,context));});
   input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('.composer').requestSubmit();}});
   input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,115)+'px';});
   $('.composer').addEventListener('submit',async e=>{
     e.preventDefault();const q=input.value.trim();if(!q||busy)return;
     input.value='';input.style.height='auto';add('user',q);closeModels();await loadSettings();
-    const state=await readCurrentState();showBattleInfo(state);
+    const state=await readCurrentState();
     if(mode==='local'){add('bot',window.ZyncezCoach.analyze(q,state,context));return;}
     if(!hasKey){add('bot','Right-click the chat bubble and open Settings to add your OpenRouter key.');return;}
     if(window.ZyncezDecision?.isTacticalQuestion(q))state.decisionSupport=window.ZyncezDecision.analyze(state,q);

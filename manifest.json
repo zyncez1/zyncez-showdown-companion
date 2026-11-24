@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Zyncez AI Battle Companion",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Minimal draggable Showdown messenger with instant offline model switcher, contextual settings and integrated battle analysis.",
   "permissions": [
     "scripting",
